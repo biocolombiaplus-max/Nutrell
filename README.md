@@ -1,18 +1,27 @@
-# Nutrell · Tienda online
+# Nutrell · Tienda online + Panel administrativo
 
-Sitio estático (HTML/CSS/JS) listo para Vercel. Todo el contenido sale de **`data/productos.json`**.
+Tienda en Vercel con panel tipo Shopify en **/admin**.
 
-## Cómo cambiar precios, textos o WhatsApp
-1. Edita `data/productos.json` (sección `sitio` para WhatsApp, URL, envío gratis y fin de la oferta; cada producto tiene precio, precio antes, packs, textos y SEO).
-2. Ejecuta `python3 tools/build.py`. Esto regenera `index.html`, una página por producto (`clorofila.html`, `gaskol.html`, …), `assets/js/catalogo.js`, `sitemap.xml` y `robots.txt`.
-3. Sube los cambios a GitHub y Vercel publica solo.
+## Estructura
+- `api/page.js` — arma las páginas de la tienda (inicio, productos, sitemap, robots) con los datos del panel.
+- `api/store.js` — pedidos, conteo de visitas e imágenes subidas.
+- `api/admin.js` — API del panel (requiere sesión).
+- `admin/` — panel administrativo (resumen de ventas, pedidos, productos, clientes, descuentos, contenido, colecciones y configuración).
+- `lib/seed.js` — catálogo inicial. Lo que se edita en el panel se guarda en la base de datos y tiene prioridad.
+- `assets/` — estilos, código de la tienda e imágenes.
 
-## Cómo agregar un producto nuevo
-1. Pon la foto en `_fuentes/originales/<slug>.jpg` y su recorte sin fondo en `_fuentes/recortes/<slug>.png` (hecho con `rembg`).
-2. Agrega el producto en `data/productos.json`.
-3. Ejecuta `python3 tools/imagenes.py` y luego `python3 tools/build.py`.
+## Puesta en marcha en Vercel (una sola vez)
+1. Proyecto en Vercel → **Storage** → **Create Database** → **Upstash for Redis** (plan gratis) → **Connect** al proyecto.
+2. **Deployments** → último despliegue → **Redeploy**.
+3. Entra a `tu-dominio/admin` con la clave inicial **123456** y cámbiala en **Configuración → Seguridad**.
 
-## Antes de publicar
-- Número de WhatsApp real y URL final del sitio (`sitio.url`, se usa en SEO y sitemap).
-- Precios reales (los actuales son de ejemplo).
-- Reseñas reales en `tools/build.py` (las actuales son de ejemplo).
+Opcional: variable `ADMIN_PASSWORD` en Vercel para fijar la clave por entorno (la que se guarde desde el panel tiene prioridad).
+
+## Probar en local
+```bash
+NUTRELL_DB=memory node tools/servidor.mjs
+```
+Abre http://localhost:3000 (tienda) y http://localhost:3000/admin (panel). La base en memoria se borra al cerrar.
+
+## Imágenes con fondo transparente
+Para productos nuevos, sube desde el panel una imagen PNG con fondo transparente. `tools/imagenes.py` sirve para procesar en lote fotos de `_fuentes/`.

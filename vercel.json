@@ -1,8 +1,21 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
-  "redirects": [{ "source": "/producto", "destination": "/colageno-marino", "permanent": true }],
+  "redirects": [
+    { "source": "/producto", "destination": "/colageno-marino", "permanent": true },
+    { "source": "/:slug([a-z0-9-]+)\\.html", "destination": "/:slug", "permanent": true }
+  ],
+  "rewrites": [
+    { "source": "/", "destination": "/api/page?r=index" },
+    { "source": "/sitemap.xml", "destination": "/api/page?r=sitemap" },
+    { "source": "/robots.txt", "destination": "/api/page?r=robots" },
+    { "source": "/img/:id", "destination": "/api/store?a=img&id=:id" },
+    { "source": "/admin", "destination": "/admin/index.html" },
+    { "source": "/:slug([a-z0-9-]+)", "destination": "/api/page?r=product&slug=:slug" }
+  ],
   "headers": [
-    { "source": "/assets/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=604800" }] }
+    { "source": "/assets/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }] },
+    { "source": "/admin/(.*)", "headers": [{ "key": "Cache-Control", "value": "no-cache" }, { "key": "X-Robots-Tag", "value": "noindex" }] },
+    { "source": "/(.*)", "headers": [{ "key": "X-Content-Type-Options", "value": "nosniff" }, { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }] }
   ]
 }
