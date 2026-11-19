@@ -15,7 +15,8 @@ SITE = D["sitio"]; URL = SITE["url"].rstrip("/")
 PRODS = D["productos"]; BY = {p["slug"]: p for p in PRODS}
 CATS = {c["id"]: c for c in D["categorias"]}
 PRIO = ' fetchpriority="high"'; LAZY = ' loading="lazy"'
-VER = date.today().strftime("%Y%m%d")
+import hashlib
+VER = hashlib.md5(b"".join(open(os.path.join(ROOT, x), "rb").read() for x in ["assets/js/main.js", "assets/css/styles.css", "data/productos.json"])).hexdigest()[:8]
 
 def cop(n): return "$" + f"{round(n):,}".replace(",", ".")
 def esc(s): return html.escape(s, quote=True)

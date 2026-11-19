@@ -14,7 +14,9 @@ const store = {
   get() { try { return JSON.parse(localStorage.getItem("nutrell-cart")) || []; } catch { return []; } },
   set(v) { try { localStorage.setItem("nutrell-cart", JSON.stringify(v)); } catch {} },
 };
-let cart = store.get();
+let cart = store.get().filter((i) => i && PRODUCTS[i.id] && i.qty > 0);
+cart.forEach((i) => (i.unit = packPrice(i.id, i.units)));
+store.set(cart);
 
 function packOff(id, units) { return (PRODUCTS[id].packs || {})[units] || 0; }
 function packPrice(id, units) {
@@ -33,7 +35,7 @@ function addToCart(id, units = 1, qty = 1, silent = false) {
   if (found) found.qty += qty;
   else cart.push({ key, id, units, qty, unit });
   store.set(cart);
-  renderCart();
+  safe(renderCart);
   const c = $(".cart-count");
   if (c) { c.classList.remove("bump"); void c.offsetWidth; c.classList.add("bump"); }
   if (silent) return;
@@ -208,7 +210,19 @@ function initBuybox() {
 }
 
 /* ---------- Init general ---------- */
+function initReveal() {
+  const els = $$(".reveal");
+  if (!("IntersectionObserver" in window)) { els.forEach((el) => el.classList.add("in")); return; }
+  document.documentElement.classList.add("anim");
+  const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { threshold: 0.08, rootMargin: "0px 0px -40px 0px" });
+  els.forEach((el) => io.observe(el));
+  // Seguridad: si algo falla, mostrar todo tras 2,5 s
+  setTimeout(() => els.forEach((el) => el.classList.add("in")), 2500);
+}
+const safe = (fn) => { try { fn(); } catch (err) { console.error(err); } };
+
 document.addEventListener("DOMContentLoaded", () => {
+  safe(initReveal);
   // Header con sombra al hacer scroll
   const header = $(".header");
   const onScroll = () => header?.classList.toggle("scrolled", scrollY > 10);
@@ -270,14 +284,11 @@ document.addEventListener("DOMContentLoaded", () => {
     c.style.setProperty("--mx", e.clientX - r.left + "px"); c.style.setProperty("--my", e.clientY - r.top + "px");
   }));
 
-  // Animaciones de entrada
-  const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { threshold: 0.12, rootMargin: "0px 0px -40px 0px" });
-  $$(".reveal").forEach((el) => io.observe(el));
 
   // Año footer
   $$("[data-year]").forEach((el) => (el.textContent = new Date().getFullYear()));
 
-  startCountdowns();
-  initGallery();
-  initBuybox();
+  safe(startCountdowns);
+  safe(initGallery);
+  safe(initBuybox);
 });
