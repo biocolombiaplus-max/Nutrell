@@ -2,26 +2,9 @@
    NUTRELL — lógica de tienda
    ⚙️  EDITA AQUÍ: precios, WhatsApp, envío gratis y fecha de la oferta
    ========================================================= */
-const CONFIG = {
-  whatsapp: "573000000000",          // Número con indicativo, sin "+" ni espacios
-  freeShippingFrom: 150000,          // Envío gratis desde (COP)
-  promoEnds: "2026-11-30T23:59:59-05:00", // Fin de la oferta de lanzamiento
-};
-
-const PRODUCTS = {
-  "colageno-marino-uva": {
-    id: "colageno-marino-uva",
-    name: "Colágeno Marino con Péptidos · 1000 g",
-    variant: "Sabor uva",
-    price: 129900,       // precio oferta
-    compareAt: 159900,   // precio antes
-    image: "assets/img/colageno-marino-uva-sm.jpg",
-    url: "producto.html",
-  },
-};
-
-// Packs: unidades y % de descuento sobre el precio de oferta
-const PACKS = { 1: 0, 2: 0.10, 3: 0.15 };
+// Los datos vienen de assets/js/catalogo.js (generado desde data/productos.json)
+const CONFIG = window.NUTRELL.config;
+const PRODUCTS = window.NUTRELL.products;
 
 /* ---------- Utilidades ---------- */
 const $ = (s, c = document) => c.querySelector(s);
@@ -33,16 +16,17 @@ const store = {
 };
 let cart = store.get();
 
+function packOff(id, units) { return (PRODUCTS[id].packs || {})[units] || 0; }
 function packPrice(id, units) {
   const p = PRODUCTS[id];
-  return p.price * units * (1 - (PACKS[units] || 0));
+  return p.price * units * (1 - packOff(id, units));
 }
 
 /* ---------- Carrito ---------- */
 function cartTotal() { return cart.reduce((s, i) => s + i.unit * i.qty, 0); }
 function cartCount() { return cart.reduce((s, i) => s + i.qty * i.units, 0); }
 
-function addToCart(id, units = 1, qty = 1) {
+function addToCart(id, units = 1, qty = 1, silent = false) {
   const unit = packPrice(id, units);
   const key = id + "-" + units;
   const found = cart.find((i) => i.key === key);
@@ -52,7 +36,8 @@ function addToCart(id, units = 1, qty = 1) {
   renderCart();
   const c = $(".cart-count");
   if (c) { c.classList.remove("bump"); void c.offsetWidth; c.classList.add("bump"); }
-  toast("✓ Agregado a tu carrito");
+  if (silent) return;
+  toast("Agregado a tu carrito");
   setTimeout(openCart, 350);
 }
 
@@ -62,11 +47,12 @@ function renderCart() {
   const body = $(".drawer-body");
   if (!body) return;
   if (!cart.length) {
-    body.innerHTML = `<div class="empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M6 7h12l-1 13H7L6 7z"/><path d="M9 7a3 3 0 016 0"/></svg><p>Tu carrito está vacío.<br>Tu mejor versión empieza hoy.</p><a href="producto.html" class="btn btn-dark">Ver Colágeno Marino</a></div>`;
+    body.innerHTML = `<div class="empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M6 7h12l-1 13H7L6 7z"/><path d="M9 7a3 3 0 016 0"/></svg><p>Tu carrito está vacío.<br>Tu mejor versión empieza hoy.</p><a href="index.html#coleccion" class="btn btn-dark">Ver productos</a></div>`;
   } else {
     body.innerHTML = cart.map((i) => {
       const p = PRODUCTS[i.id];
-      const label = i.units > 1 ? `Pack x${i.units} · ahorra ${PACKS[i.units] * 100}%` : p.variant;
+      const off = packOff(i.id, i.units);
+      const label = i.units > 1 ? `Pack x${i.units}${off ? ` · ahorra ${Math.round(off * 100)}%` : ""}` : p.variant;
       return `<div class="cart-item">
         <img src="${p.image}" alt="${p.name}">
         <div><h4>${p.name}</h4><small>${label}</small><br>
@@ -81,8 +67,8 @@ function renderCart() {
   const sp = $(".ship-progress");
   if (sp) {
     sp.innerHTML = (missing > 0
-      ? `Te faltan <b>${cop(missing)}</b> para tener <b>envío gratis</b> 🚚`
-      : `🎉 ¡Felicitaciones! Tu pedido tiene <b>envío gratis</b>`) +
+      ? `Te faltan <b>${cop(missing)}</b> para tener <b>envío gratis</b>`
+      : `¡Felicitaciones! Tu pedido tiene <b>envío gratis</b>`) +
       `<div class="bar"><i style="width:${Math.min(100, (total / CONFIG.freeShippingFrom) * 100)}%"></i></div>`;
   }
   const t = $("[data-cart-total]"); if (t) t.textContent = cop(total);
@@ -97,7 +83,7 @@ function checkoutWhatsApp() {
   if (!cart.length) return;
   const lines = cart.map((i) => `• ${i.qty} x ${PRODUCTS[i.id].name}${i.units > 1 ? ` (Pack x${i.units})` : ""} — ${cop(i.unit * i.qty)}`);
   const total = cartTotal();
-  const msg = `¡Hola Nutrell! 👋 Quiero hacer este pedido:\n\n${lines.join("\n")}\n\nTotal: ${cop(total)}${total >= CONFIG.freeShippingFrom ? " (envío gratis)" : ""}\n\nMi nombre:\nCiudad:\nDirección:\nMétodo de pago (contraentrega / transferencia):`;
+  const msg = `¡Hola Nutrell! Quiero hacer este pedido:\n\n${lines.join("\n")}\n\nTotal: ${cop(total)}${total >= CONFIG.freeShippingFrom ? " (envío gratis)" : ""}\n\nMi nombre:\nCiudad:\nDirección:\nMétodo de pago (contraentrega / transferencia):`;
   window.open(waLink(msg), "_blank", "noopener");
 }
 
@@ -206,7 +192,7 @@ function initBuybox() {
   $$("[data-add-pdp]").forEach((b) => b.addEventListener("click", () => addToCart(id, units(), qty)));
   $$("[data-wa-pdp]").forEach((b) => b.addEventListener("click", () => {
     const u = units();
-    window.open(waLink(`¡Hola Nutrell! 👋 Quiero comprar ${qty} x ${p.name}${u > 1 ? ` (Pack x${u})` : ""} por ${cop(packPrice(id, u) * qty)}. ¿Me ayudan con el pedido?`), "_blank", "noopener");
+    window.open(waLink(`¡Hola Nutrell! Quiero comprar ${qty} x ${p.name}${u > 1 ? ` (Pack x${u})` : ""} por ${cop(packPrice(id, u) * qty)}. ¿Me ayudan con el pedido?`), "_blank", "noopener");
   }));
   update();
 
@@ -254,11 +240,25 @@ document.addEventListener("DOMContentLoaded", () => {
   $$("[data-was-of]").forEach((el) => { el.textContent = cop(PRODUCTS[el.dataset.wasOf].compareAt * Number(el.dataset.units || 1)); });
   $$("[data-per-of]").forEach((el) => { const u = Number(el.dataset.units); el.textContent = `${cop(packPrice(el.dataset.perOf, u) / u)} c/u`; });
 
+  // Kits / rituales: agregan varios productos a la vez
+  $$("[data-kit]").forEach((b) => b.addEventListener("click", () => {
+    b.dataset.kit.split(",").forEach((id) => addToCart(id, 1, 1, true));
+    toast("Ritual agregado a tu carrito"); setTimeout(openCart, 350);
+  }));
+
+  // Filtros de la colección
+  const applyFilter = (c) => {
+    $$("[data-filter]").forEach((f) => f.classList.toggle("on", f.dataset.filter === c));
+    $$(".pcard[data-cat]").forEach((card) => card.classList.toggle("hide", c !== "todos" && card.dataset.cat !== c));
+  };
+  $$("[data-filter]").forEach((f) => f.addEventListener("click", () => applyFilter(f.dataset.filter)));
+  $$("[data-goto-cat]").forEach((a) => a.addEventListener("click", () => applyFilter(a.dataset.gotoCat)));
+
   // WhatsApp genérico
   $$("[data-wa]").forEach((a) => (a.href = waLink(a.dataset.wa || "¡Hola Nutrell! Quiero más información 🙌")));
 
   // Newsletter
-  $$("form.newsletter").forEach((f) => f.addEventListener("submit", (e) => { e.preventDefault(); f.reset(); toast("🎁 ¡Listo! Usa el código NUTRE10 en tu primera compra"); }));
+  $$("form.newsletter").forEach((f) => f.addEventListener("submit", (e) => { e.preventDefault(); f.reset(); toast("¡Listo! Usa el código NUTRE10 en tu primera compra"); }));
 
   // Lightbox
   $(".lightbox .close")?.addEventListener("click", () => $(".lightbox").classList.remove("open"));

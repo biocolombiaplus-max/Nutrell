@@ -1,10 +1,18 @@
-# Nutrell · Tienda online (landing + página de producto)
+# Nutrell · Tienda online
 
-Sitio estático (HTML/CSS/JS, sin dependencias). Abre `index.html` en el navegador o súbelo a cualquier hosting (Netlify, Vercel, GitHub Pages, Hostinger…).
+Sitio estático (HTML/CSS/JS) listo para Vercel. Todo el contenido sale de **`data/productos.json`**.
 
-- `index.html` — landing principal (hero, fórmula, ritual, comparativa, reseñas, packs, FAQ, newsletter).
-- `producto.html` — página de producto con galería, miniaturas, zoom, packs, carrito y compra por WhatsApp.
-- `assets/js/main.js` — **edita aquí** el número de WhatsApp, precios, envío gratis y fecha de fin de la oferta (`CONFIG` y `PRODUCTS`).
-- `assets/css/styles.css` — sistema de diseño (colores, tipografías, componentes).
+## Cómo cambiar precios, textos o WhatsApp
+1. Edita `data/productos.json` (sección `sitio` para WhatsApp, URL, envío gratis y fin de la oferta; cada producto tiene precio, precio antes, packs, textos y SEO).
+2. Ejecuta `python3 tools/build.py`. Esto regenera `index.html`, una página por producto (`clorofila.html`, `gaskol.html`, …), `assets/js/catalogo.js`, `sitemap.xml` y `robots.txt`.
+3. Sube los cambios a GitHub y Vercel publica solo.
 
-Antes de publicar: reemplaza las reseñas de ejemplo por reseñas reales, pon el número de WhatsApp real y verifica precios y textos legales.
+## Cómo agregar un producto nuevo
+1. Pon la foto en `_fuentes/originales/<slug>.jpg` y su recorte sin fondo en `_fuentes/recortes/<slug>.png` (hecho con `rembg`).
+2. Agrega el producto en `data/productos.json`.
+3. Ejecuta `python3 tools/imagenes.py` y luego `python3 tools/build.py`.
+
+## Antes de publicar
+- Número de WhatsApp real y URL final del sitio (`sitio.url`, se usa en SEO y sitemap).
+- Precios reales (los actuales son de ejemplo).
+- Reseñas reales en `tools/build.py` (las actuales son de ejemplo).
