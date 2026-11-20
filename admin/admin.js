@@ -42,7 +42,7 @@ const ICON = {
 const ic = (n, cls = "") => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICON[n]}</svg>`;
 
 const ESTADOS = [["nuevo", "Nuevo"], ["confirmado", "Confirmado"], ["preparando", "Preparando"], ["enviado", "Enviado"], ["entregado", "Entregado"], ["cancelado", "Cancelado"]];
-const PAGOS = [["pendiente", "Pendiente"], ["pagado", "Pagado"], ["reembolsado", "Reembolsado"]];
+const PAGOS = [["pendiente", "Pendiente"], ["pagado", "Pagado"], ["rechazado", "Rechazado"], ["reembolsado", "Reembolsado"]];
 const lbl = (arr, k) => (arr.find((x) => x[0] === k) || [k, k])[1];
 const badge = (k, arr = ESTADOS) => `<span class="badge b-${esc(k)}">${esc(lbl(arr, k))}</span>`;
 
@@ -103,10 +103,24 @@ function renderAuth() {
 async function boot() {
   $("#root").innerHTML = `<div class="content" style="display:grid;place-items:center;min-height:80vh;color:var(--muted)">Cargando tu tienda…</div>`;
   const [cat, orders, visits, status] = await Promise.all([api("catalog"), api("orders").catch(() => []), api("visits", { days: 365 }, "GET").catch(() => ({})), fetch("/api/admin?a=status").then((r) => r.json())]);
-  S.cat = cat; S.saved = JSON.stringify(cat); S.orders = orders; S.visits = visits; S.status = status;
+  S.cat = cat; S.saved = JSON.stringify(cat); S.orders = orders; S.ordersAt = Date.now(); S.visits = visits; S.status = status;
   shell(); route();
 }
-async function reloadOrders() { S.orders = await api("orders").catch(() => S.orders); }
+async function reloadOrders() { S.orders = await api("orders").catch(() => S.orders); S.ordersAt = Date.now(); }
+// Pedidos en vivo: revisa cada 40 s y avisa cuando entra uno nuevo
+setInterval(async () => {
+  if (!S.cat || !S.status?.db || document.hidden) return;
+  const before = new Set(S.orders.map((o) => o.id + o.pago + o.estado));
+  const prevIds = new Set(S.orders.map((o) => o.id));
+  await reloadOrders();
+  const nuevos = S.orders.filter((o) => !prevIds.has(o.id));
+  const changed = S.orders.some((o) => !before.has(o.id + o.pago + o.estado));
+  updateNewCount();
+  if (nuevos.length) toast(nuevos.length === 1 ? `Nuevo pedido #${nuevos[0].numero} · ${cop(nuevos[0].total)}` : `${nuevos.length} pedidos nuevos`);
+  const sec = location.hash.split("/")[1] || "inicio";
+  const typing = document.activeElement && document.activeElement.matches("input,textarea,select");
+  if (changed && ["inicio", "pedidos", "clientes"].includes(sec) && !typing && !S.dirty) { const y = scrollY; route(); scrollTo(0, y); }
+}, 40000);
 
 /* ---------- Estructura ---------- */
 const NAV = [["inicio", "Inicio", "home"], ["pedidos", "Pedidos", "orders"], ["productos", "Productos", "box"], ["clientes", "Clientes", "users"], ["descuentos", "Descuentos", "tag"],
@@ -167,6 +181,7 @@ function route() {
   const v = $("#view");
   const banner = !S.status.db ? `<div class="banner">${ic("warn")}<div><b>Conecta la base de datos para empezar a vender y guardar cambios.</b><br>En Vercel: tu proyecto → <b>Storage</b> → <b>Create Database</b> → <b>Upstash for Redis</b> (plan gratis) → <b>Connect</b>. Luego vuelve a desplegar. Mientras tanto ves el catálogo inicial y los pedidos llegan solo por WhatsApp.</div></div>`
     : S.status.defaultPassword ? `<div class="banner">${ic("lock")}<div><b>Estás usando la clave inicial 123456.</b> Cualquiera que la adivine puede entrar a tu panel. <a href="#/ajustes" style="text-decoration:underline">Cámbiala ahora en Configuración → Seguridad</a>.</div></div>` : "";
+  if (["inicio", "pedidos", "clientes"].includes(sec) && S.status.db && Date.now() - (S.ordersAt || 0) > 4000) { S.ordersAt = Date.now(); reloadOrders().then(() => { updateNewCount(); if ((location.hash.split("/")[1] || "inicio") === sec) { const y = scrollY; route(); scrollTo(0, y); } }); }
   const views = { inicio: vDashboard, pedidos: id ? () => vOrder(id) : vOrders, productos: id ? () => vProduct(id) : vProducts, clientes: vCustomers, descuentos: vDiscounts, tienda: vContent, colecciones: vCollections, ajustes: vSettings };
   v.innerHTML = banner + (views[sec] || vDashboard)();
   window.scrollTo(0, 0);
@@ -418,7 +433,7 @@ function vOrder(id) {
     <div class="actions no-print"><a class="btn btn-line" target="_blank" rel="noopener" href="https://wa.me/${waNum(c.telefono)}?text=${encodeURIComponent(msg)}">${ic("wa")}Escribir al cliente</a><button class="btn btn-line" data-print>${ic("print")}Imprimir</button></div></div>
   <div class="grid2">
     <div>
-      <div class="card"><h2>Productos <small>${o.items.reduce((s, i) => s + i.cantidad * i.unidades, 0)} unidades</small></h2>
+      <div class="card"><h2>Productos <small>${((n) => `${n} ${n === 1 ? "unidad" : "unidades"}`)(o.items.reduce((s, i) => s + i.cantidad * i.unidades, 0))}</small></h2>
         ${o.items.map((i) => `<div class="oi"><img src="${esc(i.imagen)}" alt=""><div><b>${esc(i.nombre)}</b><small>${esc(i.variante || "")}${i.unidades > 1 ? ` · Pack x${i.unidades}` : ""} · ${cop(i.precio)} × ${i.cantidad}</small></div><b>${cop(i.total)}</b></div>`).join("")}
         <div class="sumt">
           <div><span class="muted">Subtotal</span><span>${cop(o.subtotal)}</span></div>
@@ -439,6 +454,11 @@ function vOrder(id) {
         <label class="f"><span>Estado del pedido</span><select data-estado>${ESTADOS.map(([k, l]) => `<option value="${k}"${o.estado === k ? " selected" : ""}>${l}</option>`).join("")}</select></label>
         <label class="f" style="margin:0"><span>Estado del pago</span><select data-pago>${PAGOS.map(([k, l]) => `<option value="${k}"${o.pago === k ? " selected" : ""}>${l}</option>`).join("")}</select></label>
       </div>
+      ${o.online ? `<div class="card"><h2>Pago en línea · Wompi</h2>${o.wompi ? `<div class="kv">
+          <span>${badge(o.wompi.status === "APPROVED" ? "pagado" : o.wompi.status === "PENDING" ? "pendiente" : "rechazado", PAGOS)} <b style="margin-left:6px">${esc(o.wompi.metodo || "")}</b></span>
+          <span class="muted">Transacción: <b style="color:var(--text)">${esc(o.wompi.id)}</b></span>
+          <span class="muted">Referencia: ${esc(o.wompi.referencia)}</span>
+          <span class="muted">${fDate(o.wompi.fecha)}</span></div>` : `<p class="muted" style="margin:0">El cliente aún no ha completado el pago. Puedes escribirle para ayudarle.</p>`}</div>` : ""}
       <div class="card"><h2>Cliente</h2>
         <div class="kv"><b>${esc(c.nombre)}</b><a href="https://wa.me/${waNum(c.telefono)}" target="_blank" rel="noopener">${esc(c.telefono)}</a>${c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : ""}<span class="muted">${S.orders.filter((x) => waNum(x.cliente.telefono) === waNum(c.telefono)).length} pedido(s)</span></div>
         <h3 style="margin-top:18px">Dirección de envío</h3>
@@ -738,6 +758,23 @@ function vSettings() {
     $("[data-restore]", v).onclick = () => $("[data-restore-file]", v).click();
     $("[data-restore-file]", v).onchange = async (e) => { try { const d = JSON.parse(await e.target.files[0].text()); if (!Array.isArray(d.productos)) throw 0; S.cat = d; markDirty(); route(); toast("Respaldo cargado. Revisa y guarda para publicarlo."); } catch { toast("El archivo no es un respaldo válido", true); } };
     $("[data-reset]", v).onclick = async () => { if (!(await confirmBox("¿Restaurar el catálogo inicial?", "Se reemplazarán productos, textos y precios por los originales. Los pedidos no se borran.", "Restaurar", true))) return; try { S.cat = await api("reset", {}); S.saved = JSON.stringify(S.cat); markDirty(); route(); toast("Catálogo restaurado"); } catch (x) { toast(x.message, true); } };
+    const wf = $("[data-wompi]", v);
+    const hook = location.origin + "/webhooks/wompi";
+    $("[data-w-url]", v).value = hook;
+    $("[data-w-copy]", v).onclick = () => { navigator.clipboard?.writeText(hook); toast("URL copiada"); };
+    const paintW = (w) => {
+      wf.publicKey.value = w.publicKey || ""; wf.activo.checked = w.activo !== false;
+      $("[data-w-int]", v).textContent = w.hasIntegrity ? "Guardado: " + w.integrity : "Sin configurar";
+      $("[data-w-ev]", v).textContent = w.hasEvents ? "Guardado: " + w.events : "Sin configurar";
+      $("[data-w-state]", v).innerHTML = w.enabled ? (w.test ? '<span class="badge b-pendiente">Modo pruebas</span>' : '<span class="badge b-activo">Activo · producción</span>') : '<span class="badge b-borrador">Inactivo</span>';
+      if (w.fromEnv) $(".hint", wf).innerHTML += "<br><b>Las llaves vienen de las variables de entorno de Vercel y tienen prioridad.</b>";
+    };
+    api("wompi").then(paintW).catch(() => {});
+    wf.onsubmit = async (e) => {
+      e.preventDefault();
+      try { const w = await api("wompi-save", { publicKey: wf.publicKey.value, integrity: wf.integrity.value, events: wf.events.value, activo: wf.activo.checked }); wf.integrity.value = ""; wf.events.value = ""; paintW(w); toast(w.enabled ? "Wompi conectado" : "Llaves guardadas. Falta el secreto de integridad para activar los pagos."); }
+      catch (x) { toast(x.message, true); }
+    };
     $("[data-pw]", v).onsubmit = async (e) => { e.preventDefault(); const f = e.target; if (f.nueva.value !== f.repetir.value) return toast("Las claves nuevas no coinciden", true); try { await api("password", { actual: f.actual.value, nueva: f.nueva.value }); f.reset(); S.status.defaultPassword = false; toast("Clave actualizada"); route(); } catch (x) { toast(x.message, true); } };
   });
   return `<div class="ph"><div><h1>Configuración</h1><div class="sub">Datos de la tienda, envíos, pagos y seguridad</div></div></div>
@@ -749,6 +786,15 @@ function vSettings() {
     </div>
     <div class="card"><h2>Envíos</h2><div class="row2">${money("Envío gratis desde", "sitio.envioGratisDesde")}${money("Costo de envío", "sitio.costoEnvio", "En 0 se muestra “A confirmar” y lo fijas en cada pedido.")}</div></div>
     <div class="card"><h2>Pagos</h2><label class="f"><span>Métodos de pago aceptados</span><div class="chips-in" data-chips="pagos"></div><span class="help">El primero es el seleccionado por defecto.</span></label></div>
+    <form class="card" data-wompi><h2>Pagos en línea · Wompi <small data-w-state></small></h2>
+      <p class="hint">Recibe pagos con tarjeta, PSE, Nequi y Bancolombia. Copia las llaves desde tu panel de Wompi → <b>Desarrolladores</b>. No compartas los secretos con nadie.</p>
+      <label class="sw" style="margin-bottom:14px"><input type="checkbox" name="activo"><i></i>Mostrar “Paga en línea” en la tienda</label>
+      <label class="f"><span>Llave pública</span><input name="publicKey" placeholder="pub_test_… o pub_prod_…" autocomplete="off" spellcheck="false"></label>
+      <label class="f"><span>Secreto de integridad <em data-w-int></em></span><input name="integrity" type="password" placeholder="test_integrity_… o prod_integrity_…" autocomplete="new-password" spellcheck="false"><span class="help">Déjalo vacío para conservar el actual.</span></label>
+      <label class="f"><span>Secreto de eventos <em data-w-ev></em></span><input name="events" type="password" placeholder="test_events_… o prod_events_…" autocomplete="new-password" spellcheck="false"><span class="help">Déjalo vacío para conservar el actual.</span></label>
+      <label class="f"><span>URL de eventos (pégala en Wompi → Desarrolladores → URL de eventos)</span><div style="display:flex;gap:8px"><input class="inp" readonly data-w-url><button type="button" class="btn btn-line btn-sm" data-w-copy style="height:40px">${ic("copy")}Copiar</button></div></label>
+      <button class="btn btn-dark btn-sm">Guardar llaves de Wompi</button>
+    </form>
     <div class="card"><h2>Oferta de lanzamiento</h2>${fld("Termina el", "sitio.finOferta", { type: "datetime-local", t: "dt", help: "Controla la cuenta regresiva de las páginas de producto. Vacío o fecha pasada la oculta." })}</div>
   </div><div>
     <form class="card" data-pw><h2>${ic("lock")}Seguridad</h2>${S.status.defaultPassword ? '<p class="hint" style="color:var(--bad)">Estás usando la clave inicial. Cámbiala.</p>' : ""}

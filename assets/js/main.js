@@ -7,6 +7,7 @@ const NT = window.NUTRELL || { config: {}, products: {}, coupons: [] };
 const CONFIG = NT.config;
 const PRODUCTS = NT.products;
 const COUPONS = NT.coupons || [];
+const WOMPI = !!NT.wompi;
 
 /* ---------- Utilidades ---------- */
 const $ = (s, c = document) => c.querySelector(s);
@@ -44,6 +45,7 @@ function addToCart(id, units = 1, qty = 1, silent = false) {
   safe(renderCart);
   const c = $(".cart-count");
   if (c) { c.classList.remove("bump"); void c.offsetWidth; c.classList.add("bump"); }
+  const cb = $(".cart-btn"); if (cb) { cb.classList.remove("pulse"); void cb.offsetWidth; cb.classList.add("pulse"); }
   if (silent) return true;
   toast("Agregado a tu carrito");
   setTimeout(openCart, 350);
@@ -79,6 +81,7 @@ function renderCart() {
     sp.style.display = cart.length ? "" : "none";
   }
   const t = $("[data-cart-total]"); if (t) t.textContent = cop(total);
+  $$("[data-cart-mini]").forEach((el) => (el.textContent = cop(total)));
   const f = $('[data-view="cart"] .drawer-foot'); if (f) f.style.display = cart.length ? "grid" : "none";
   safe(renderCheckoutTotals);
 }
@@ -116,6 +119,15 @@ function renderCheckoutTotals() {
   $("[data-co-disc]").textContent = "−" + cop(t.discount) + (coupon ? ` (${coupon.code})` : "");
   $("[data-co-ship]").textContent = t.free ? "Gratis" : t.ship ? cop(t.ship) : "A confirmar";
   $("[data-co-total]").textContent = cop(t.total);
+  updatePayButton();
+}
+function payMethod() { return $('.checkout input[name="metodoPago"]:checked')?.value || ""; }
+function updatePayButton() {
+  const l = $("[data-pay-label]"); if (!l) return;
+  const t = totals(), online = payMethod() === "__wompi";
+  l.textContent = online ? `Pagar ${cop(t.total)} de forma segura` : `Confirmar pedido · ${cop(t.total)}`;
+  $("[data-place-order]")?.querySelector("svg")?.style.setProperty("display", online ? "" : "none");
+  const n = $("[data-pay-note]"); if (n) n.textContent = online ? "Pagos procesados por Wompi, de Bancolombia. Tus datos viajan cifrados." : "Al confirmar recibirás tu número de pedido y te contactaremos por WhatsApp.";
 }
 function orderMessage(num, form, t) {
   const lines = cart.map((i) => `• ${i.qty} x ${PRODUCTS[i.id].name}${i.units > 1 ? ` (Pack x${i.units})` : ""} — ${cop(i.unit * i.qty)}`);
@@ -132,7 +144,9 @@ async function placeOrder(e) {
   if (missing.length) { err.textContent = "Completa los campos marcados."; return; }
   if (String(data.telefono).replace(/\D/g, "").length < 7) { err.textContent = "Revisa tu número de celular."; $("[name=telefono]", form).classList.add("bad"); return; }
   if (!cart.length) return;
-  err.textContent = ""; btn.disabled = true; btn.textContent = "Procesando…";
+  err.textContent = "";
+  if (data.metodoPago === "__wompi") return payOnline(data, form);
+  btn.disabled = true; btn.classList.add("loading");
   const t = totals();
   let result = null;
   try {
@@ -142,17 +156,123 @@ async function placeOrder(e) {
     }) });
     const j = await r.json().catch(() => ({}));
     if (r.ok) result = j;
-    else if (j.error && j.error !== "NO_DB") { err.textContent = j.error; btn.disabled = false; btn.textContent = "Confirmar pedido"; return; }
+    else if (j.error && j.error !== "NO_DB") { err.textContent = j.error; btn.disabled = false; btn.classList.remove("loading"); return; }
   } catch {}
   const msg = orderMessage(result?.numero, data, result ? { discount: result.descuento, ship: result.envio, free: !result.envio && !result.envioPorConfirmar, total: result.total } : t);
-  $("[data-done-num]").textContent = result ? "#" + result.numero : "";
+  $("[data-done-text]").innerHTML = result ? `Tu pedido <b>#${result.numero}</b> fue recibido. Confírmalo por WhatsApp para despacharlo lo antes posible.` : "Envíanos tu pedido por WhatsApp para confirmarlo y despacharlo.";
+  $("[data-done-wa-label]").textContent = "Confirmar por WhatsApp";
   $("[data-done-sum]").innerHTML = cart.map((i) => `<div><span>${i.qty} × ${escH(PRODUCTS[i.id].name)}${i.units > 1 ? ` (x${i.units})` : ""}</span><b>${cop(i.unit * i.qty)}</b></div>`).join("") + `<div class="tot"><span>Total</span><b>${cop(result ? result.total : t.total)}</b></div>`;
   $("[data-done-wa]").href = waLink(msg);
-  if (!result) $(".done p").innerHTML = "Envíanos tu pedido por WhatsApp para confirmarlo y despacharlo.";
   cart = []; coupon = null; store.set(cart); renderCart(); form.reset();
-  btn.disabled = false; btn.textContent = "Confirmar pedido";
+  btn.disabled = false; btn.classList.remove("loading");
+  setDone("ok", result ? "¡Gracias por tu compra!" : "¡Ya casi!", null);
   showView("done");
   if (!result) window.open(waLink(msg), "_blank", "noopener");
+}
+
+/* ---------- Pago en línea (Wompi) ---------- */
+const cartSig = () => JSON.stringify([cart.map((i) => [i.key, i.qty]), coupon?.code || ""]);
+function loadWompi() {
+  return new Promise((res, rej) => {
+    if (window.WidgetCheckout) return res();
+    const s = document.createElement("script");
+    s.src = "https://checkout.wompi.co/widget.js"; s.async = true;
+    s.onload = () => res(); s.onerror = () => rej(new Error("No pudimos abrir la pasarela de pagos. Revisa tu conexión e intenta de nuevo."));
+    document.head.appendChild(s);
+  });
+}
+async function postJSON(a, payload) {
+  const r = await fetch(`/api/store?a=${a}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error === "NO_DB" ? "El pago en línea aún no está disponible. Elige contra entrega." : j.error || "No pudimos iniciar el pago.");
+  return j;
+}
+async function payOnline(data, form) {
+  const err = $("[data-co-error]"), btn = $("[data-place-order]");
+  btn.disabled = true; btn.classList.add("loading");
+  const cliente = { nombre: data.nombre, telefono: data.telefono, email: data.email, ciudad: data.ciudad, departamento: data.departamento, direccion: data.direccion, notas: data.notas };
+  try {
+    let res = null;
+    const pend = store.get("nutrell-pend");
+    if (pend && pend.sig === cartSig() && pend.tel === data.telefono) {
+      try { res = await postJSON("pay", { numero: pend.numero, telefono: data.telefono }); } catch { res = null; }
+    }
+    if (!res) res = await postJSON("order", { online: true, items: cart.map((i) => ({ id: i.id, units: i.units, qty: i.qty })), cupon: coupon ? coupon.code : "", cliente });
+    store.set({ numero: res.numero, sig: cartSig(), tel: data.telefono }, "nutrell-pend");
+    await loadWompi();
+    const p = res.pay;
+    const checkout = new window.WidgetCheckout({
+      currency: p.currency, amountInCents: p.amountInCents, reference: p.reference, publicKey: p.publicKey,
+      signature: { integrity: p.signature.integrity }, redirectUrl: p.redirectUrl,
+      customerData: { fullName: p.customerData.fullName, phoneNumber: p.customerData.phoneNumber, phoneNumberPrefix: p.customerData.phoneNumberPrefix, ...(p.customerData.email ? { email: p.customerData.email } : {}) },
+    });
+    btn.disabled = false; btn.classList.remove("loading");
+    checkout.open(async (result) => {
+      const tx = result && result.transaction; if (!tx) return;
+      btn.disabled = true; btn.classList.add("loading");
+      let v = { status: tx.status, numero: res.numero, total: res.total, items: res.items };
+      try { v = await (await fetch(`/api/store?a=verify&id=${encodeURIComponent(tx.id)}`)).json(); } catch {}
+      btn.disabled = false; btn.classList.remove("loading");
+      afterPayment(v.status || tx.status, v.numero ? v : { ...v, numero: res.numero, total: res.total, items: res.items }, form);
+    });
+  } catch (e) {
+    err.textContent = e.message; btn.disabled = false; btn.classList.remove("loading");
+  }
+}
+function afterPayment(status, o, form) {
+  const err = $("[data-co-error]");
+  if (status === "APPROVED" || status === "PENDING") {
+    const sum = (o.items || []).map((i) => `<div><span>${i.cantidad} × ${escH(i.nombre)}${i.unidades > 1 ? ` (x${i.unidades})` : ""}</span><b>${cop(i.total)}</b></div>`).join("") + `<div class="tot"><span>Total pagado</span><b>${cop(o.total)}</b></div>`;
+    $("[data-done-sum]").innerHTML = sum;
+    $("[data-done-wa]").href = waLink(`¡Hola Nutrell! Acabo de ${status === "APPROVED" ? "pagar" : "hacer"} el pedido *#${o.numero}* por ${cop(o.total)} en la tienda online.`);
+    $("[data-done-wa-label]").textContent = "Hablar con una asesora";
+    if (status === "APPROVED") setDone("ok", "¡Pago aprobado!", `Tu pedido <b>#${o.numero}</b> está pagado${o.metodo ? ` con ${escH(o.metodo)}` : ""}. Te avisaremos por WhatsApp cuando salga hacia tu dirección.`);
+    else setDone("warn", "Pago en proceso", `Tu pedido <b>#${o.numero}</b> fue recibido y el pago se está confirmando. Te avisaremos apenas quede aprobado.`);
+    cart = []; coupon = null; store.set(cart); store.set(null, "nutrell-pend"); renderCart(); form?.reset();
+    showView("done");
+  } else {
+    err.textContent = `Tu pago no fue aprobado${o.mensaje ? `: ${o.mensaje}` : ""}. Puedes intentarlo de nuevo con otro medio de pago.`;
+    const l = $("[data-pay-label]"); if (l) l.textContent = "Reintentar pago";
+  }
+}
+function setDone(kind, title, html) {
+  const ico = $("[data-done-ico]"); if (!ico) return;
+  ico.className = "done-ico" + (kind === "ok" ? "" : " " + kind);
+  $("[data-done-title]").textContent = title;
+  if (html) $("[data-done-text]").innerHTML = html;
+}
+
+// Página /pedido: Wompi regresa aquí después de PSE u otros medios con redirección
+async function initPayStatus() {
+  const box = $("[data-pay-status]"); if (!box) return;
+  const id = new URLSearchParams(location.search).get("id");
+  const ok = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>';
+  const x = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  const clock = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+  const draw = (ico, cls, title, text, o, acts) => {
+    box.innerHTML = `<div class="ps-ico ${cls}">${ico}</div><h1>${title}</h1><p class="lead">${text}</p>` +
+      (o && o.items ? `<div class="done-sum">${o.items.map((i) => `<div><span>${i.cantidad} × ${escH(i.nombre)}</span><b>${cop(i.total)}</b></div>`).join("")}<div class="tot"><span>Total</span><b>${cop(o.total)}</b></div></div>` : "") +
+      `<div class="acts">${acts}</div>`;
+  };
+  const home = '<a class="btn btn-dark" href="/#coleccion">Seguir comprando</a>';
+  if (!id) return draw(x, "bad", "No encontramos tu pago", "Si ya pagaste, escríbenos por WhatsApp y lo revisamos.", null, home + `<a class="btn btn-wa" target="_blank" rel="noopener" href="${waLink("Hola Nutrell, hice un pago y quiero confirmarlo.")}">WhatsApp</a>`);
+  let tries = 0;
+  const check = async () => {
+    let v;
+    try { v = await (await fetch(`/api/store?a=verify&id=${encodeURIComponent(id)}`)).json(); } catch { v = { status: "ERROR_NET" }; }
+    const wa = (t) => `<a class="btn btn-wa" target="_blank" rel="noopener" href="${waLink(t)}">Hablar con una asesora</a>`;
+    if (v.status === "APPROVED") {
+      cart = []; store.set(cart); store.set(null, "nutrell-pend"); renderCart();
+      draw(ok, "", "¡Pago aprobado!", `Tu pedido <b>#${v.numero}</b> está pagado${v.metodo ? ` con ${escH(v.metodo)}` : ""}. Te avisaremos por WhatsApp cuando salga hacia tu dirección.`, v, home + wa(`¡Hola Nutrell! Acabo de pagar el pedido #${v.numero}.`));
+    } else if (v.status === "PENDING" || v.status === "ERROR_NET") {
+      draw(clock, "warn", "Pago en proceso", `Estamos esperando la confirmación de tu banco${v.numero ? ` para el pedido <b>#${v.numero}</b>` : ""}. Esta página se actualiza sola.`, v.items ? v : null, home);
+      if (++tries < 24) setTimeout(check, 5000);
+    } else {
+      draw(x, "bad", "Pago no aprobado", `Tu pago no se completó${v.mensaje ? `: ${escH(v.mensaje)}` : ""}. Tu carrito sigue guardado para que lo intentes de nuevo.`, null, `<button class="btn btn-gold" data-retry>Intentar de nuevo</button>` + wa("Hola Nutrell, tuve un problema pagando mi pedido."));
+      $("[data-retry]", box)?.addEventListener("click", () => { openCart(); if (cart.length) { showView("checkout"); renderCheckoutTotals(); } });
+    }
+  };
+  check();
 }
 
 /* ---------- Toast ---------- */
@@ -306,6 +426,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     $("[data-go-checkout]")?.addEventListener("click", () => { showView("checkout"); renderCheckoutTotals(); const saved = store.get("nutrell-cliente"); if (saved) for (const [k, v] of Object.entries(saved)) { const f = $(`.checkout [name="${k}"]`); if (f && f.type !== "radio" && !f.value) f.value = v; } });
     $("[data-go-cart]")?.addEventListener("click", () => showView("cart"));
+    $$('.checkout input[name="metodoPago"]').forEach((r) => r.addEventListener("change", updatePayButton));
     $("[data-apply-coupon]")?.addEventListener("click", () => {
       const input = $(".checkout [name=cupon]"), msg = $("[data-coupon-msg]");
       const r = couponFor(input.value, cartTotal());
@@ -346,6 +467,7 @@ document.addEventListener("DOMContentLoaded", () => {
   safe(startCountdowns);
   safe(initGallery);
   safe(initBuybox);
+  safe(initPayStatus);
 
   // Conteo de visitas (anónimo, una vez por sesión)
   safe(() => {

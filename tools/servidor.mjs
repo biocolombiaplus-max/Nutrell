@@ -15,6 +15,8 @@ function rewrite(p) {
   if (p === "/") return "/api/page?r=index";
   if (p === "/sitemap.xml") return "/api/page?r=sitemap";
   if (p === "/robots.txt") return "/api/page?r=robots";
+  if (p === "/pedido") return "/api/page?r=pedido";
+  if (p === "/webhooks/wompi") return "/api/store?a=wompi";
   if (p === "/admin" || p === "/admin/") return "/admin/index.html";
   let m = p.match(/^\/img\/([a-z0-9-]+)$/i); if (m) return `/api/store?a=img&id=${m[1]}`;
   m = p.match(/^\/([a-z0-9-]+)$/); if (m && m[1] !== "api") return `/api/page?r=product&slug=${m[1]}`;

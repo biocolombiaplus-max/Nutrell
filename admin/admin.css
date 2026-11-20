@@ -312,3 +312,4 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 720px; }
 .bar-row .vl { white-space: nowrap; }
 @media (min-width: 861px) { .app { background: linear-gradient(90deg, var(--ink) var(--side), transparent 0); } }
 .nav-i .count[hidden] { display: none; }
+.b-rechazado { background: var(--bad-soft); color: var(--bad); }

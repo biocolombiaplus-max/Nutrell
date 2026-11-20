@@ -25,3 +25,11 @@ Abre http://localhost:3000 (tienda) y http://localhost:3000/admin (panel). La ba
 
 ## Imágenes con fondo transparente
 Para productos nuevos, sube desde el panel una imagen PNG con fondo transparente. `tools/imagenes.py` sirve para procesar en lote fotos de `_fuentes/`.
+
+## Pagos en línea con Wompi (tarjeta, PSE, Nequi, Bancolombia)
+1. En el panel de Wompi → **Desarrolladores** copia: llave pública, secreto de **integridad** y secreto de **eventos**.
+2. En `/admin` → **Configuración → Pagos en línea · Wompi** pégalas y guarda. (La llave privada no se usa.)
+3. En Wompi → **Desarrolladores → URL de eventos** pega: `https://www.nutrell.co/webhooks/wompi` (también aparece en el panel con botón Copiar).
+4. Prueba primero con las llaves de **pruebas** (`pub_test_…`); luego cambia a las de **producción** (`pub_prod_…`).
+
+Flujo: el cliente paga en la ventana de Wompi sin salir de la tienda; el pedido se marca **Pagado** y pasa a **Confirmado** automáticamente. PSE regresa a `/pedido`, que confirma el pago. Opcional: variables `WOMPI_PUBLIC_KEY`, `WOMPI_INTEGRITY_SECRET`, `WOMPI_EVENTS_SECRET` en Vercel (tienen prioridad).

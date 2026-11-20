@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { getCatalog, saveCatalog, listOrders, updateOrder, deleteOrder, normalize } from "../lib/catalog.js";
 import seed from "../lib/seed.js";
 import { pipeline, cmd, dbConfigured, K, rateLimit } from "../lib/db.js";
+import { wompiConfig, saveWompi, publicWompi } from "../lib/wompi.js";
 import { passwordInfo, checkPassword, setPassword, sessionCookie, clearCookie, isAdmin } from "../lib/auth.js";
 import { query, body, ip, send } from "../lib/http.js";
 
@@ -35,6 +36,12 @@ export default async function handler(req, res) {
         await setPassword(nueva);
         return send(res, 200, { ok: true });
       }
+      case "wompi":
+        return send(res, 200, publicWompi(await wompiConfig({ fresh: true })));
+      case "wompi-save": {
+        needDb();
+        return send(res, 200, await saveWompi(await body(req)));
+      }
       case "catalog":
         return send(res, 200, await getCatalog({ fresh: true }));
       case "save": {
@@ -44,7 +51,7 @@ export default async function handler(req, res) {
         const slugs = data.productos.map((p) => p.slug);
         if (slugs.some((s) => !/^[a-z0-9-]{2,60}$/.test(s || ""))) return send(res, 400, { error: "Cada producto necesita una URL válida (solo minúsculas, números y guiones)." });
         if (new Set(slugs).size !== slugs.length) return send(res, 400, { error: "Hay dos productos con la misma URL." });
-        if (["admin", "api", "assets", "img", "sitemap", "robots", "producto"].some((r) => slugs.includes(r))) return send(res, 400, { error: "Esa URL está reservada. Usa otra." });
+        if (["admin", "api", "assets", "img", "sitemap", "robots", "producto", "pedido", "webhooks"].some((r) => slugs.includes(r))) return send(res, 400, { error: "Esa URL está reservada. Usa otra." });
         return send(res, 200, await saveCatalog(data));
       }
       case "reset": {
