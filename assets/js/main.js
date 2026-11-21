@@ -90,6 +90,17 @@ function showView(v) {
   $$(".drawer-view").forEach((el) => (el.hidden = el.dataset.view !== v));
   const t = $("[data-drawer-title]"); if (t) t.textContent = v === "checkout" ? "Finalizar compra" : v === "done" ? "Pedido recibido" : "Tu carrito";
 }
+function goCheckout() {
+  if (!cart.length) return;
+  showView("checkout"); renderCheckoutTotals();
+  const saved = store.get("nutrell-cliente");
+  if (saved) for (const [k, v] of Object.entries(saved)) { const f = $(`.checkout [name="${k}"]`); if (f && f.type !== "radio" && !f.value) f.value = v; }
+  $(".checkout .drawer-body")?.scrollTo(0, 0);
+}
+function openCheckout() {
+  $(".drawer")?.classList.add("open"); $(".overlay")?.classList.add("show"); document.body.style.overflow = "hidden";
+  goCheckout();
+}
 function openCart() { showView("cart"); $(".drawer")?.classList.add("open"); $(".overlay")?.classList.add("show"); document.body.style.overflow = "hidden"; }
 function closeCart() { $(".drawer")?.classList.remove("open"); $(".overlay")?.classList.remove("show"); document.body.style.overflow = ""; }
 
@@ -372,19 +383,27 @@ function initBuybox() {
   $$("input[name=pack]", box).forEach((r) => r.addEventListener("change", update));
   $$("[data-step]", box).forEach((b) => b.addEventListener("click", () => { qty = Math.max(1, Math.min(20, qty + Number(b.dataset.step))); update(); }));
   $$("[data-add-pdp]").forEach((b) => b.addEventListener("click", () => addToCart(id, units(), qty)));
+  // Compra rápida: agrega y abre directamente el pago (como las grandes tiendas)
+  $$("[data-buy-now]").forEach((b) => b.addEventListener("click", () => {
+    const key = id + "-" + units();
+    const already = cart.find((i) => i.key === key);
+    if (already && already.qty >= qty) { openCheckout(); return; }
+    if (addToCart(id, units(), already ? qty - already.qty : qty, true)) openCheckout();
+  }));
   $$("[data-wa-pdp]").forEach((b) => b.addEventListener("click", () => {
     const u = units();
     const msg = p.stock !== null && p.stock <= 0 ? `¡Hola Nutrell! Quiero que me avisen cuando llegue ${p.name}.` : `¡Hola Nutrell! Quiero comprar ${qty} x ${p.name}${u > 1 ? ` (Pack x${u})` : ""} por ${cop(packPrice(id, u) * qty)}. ¿Me ayudan con el pedido?`;
     window.open(waLink(msg), "_blank", "noopener");
   }));
   update();
+  // Barra de compra: en celular siempre visible; en computador aparece al bajar
   const sticky = $(".sticky-atc"), main = $("[data-add-pdp]", box);
+  const mobile = matchMedia("(max-width: 959px)");
+  let mainVisible = true;
+  const paint = () => { const show = mobile.matches || !mainVisible; sticky.classList.toggle("show", show); document.body.classList.toggle("has-sticky", show); };
   if (sticky && main) {
-    new IntersectionObserver(([e]) => {
-      const show = !e.isIntersecting && e.boundingClientRect.top < 0;
-      sticky.classList.toggle("show", show);
-      document.body.classList.toggle("has-sticky", show);
-    }).observe(main);
+    new IntersectionObserver(([e]) => { mainVisible = e.isIntersecting || e.boundingClientRect.top > 0; paint(); }).observe(main);
+    mobile.addEventListener?.("change", paint); paint();
   }
 }
 
@@ -424,7 +443,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (r) cart = cart.filter((i) => i.key !== r.dataset.r);
       if (q || r) { store.set(cart); renderCart(); }
     });
-    $("[data-go-checkout]")?.addEventListener("click", () => { showView("checkout"); renderCheckoutTotals(); const saved = store.get("nutrell-cliente"); if (saved) for (const [k, v] of Object.entries(saved)) { const f = $(`.checkout [name="${k}"]`); if (f && f.type !== "radio" && !f.value) f.value = v; } });
+    $("[data-go-checkout]")?.addEventListener("click", goCheckout);
     $("[data-go-cart]")?.addEventListener("click", () => showView("cart"));
     $$('.checkout input[name="metodoPago"]').forEach((r) => r.addEventListener("change", updatePayButton));
     $("[data-apply-coupon]")?.addEventListener("click", () => {
