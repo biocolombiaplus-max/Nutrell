@@ -323,10 +323,27 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 720px; }
 @media (max-width: 860px) {
   .app { grid-template-columns: minmax(0, 1fr); }
   .cols-2, .cols-3 { grid-template-columns: minmax(0, 1fr); }
-  html, body { overflow-x: hidden; }
+  .main { overflow-x: clip; }
   .savebar { height: 60px; gap: 8px; }
   .savebar span { font-size: .8rem; white-space: nowrap; }
   .savebar .actions { flex: none; }
   .savebar .btn { height: 40px; padding: 0 14px; font-size: .88rem; }
 }
 .savebar .btn { position: relative; z-index: 1; touch-action: manipulation; }
+
+/* Navegación inferior en celular (como las apps de las grandes tiendas) */
+.bnav { display: none; }
+@media (max-width: 860px) {
+  .top { position: sticky; top: 0; }
+  .bnav { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+    background: rgba(13,13,14,.96); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); border-top: 1px solid rgba(255,255,255,.08); box-shadow: 0 -10px 30px -12px rgba(0,0,0,.4); }
+  .bnav a, .bnav button { position: relative; display: grid; justify-items: center; gap: 3px; padding: 7px 2px; border-radius: 12px; color: rgba(255,255,255,.55); font-size: .66rem; font-weight: 700; letter-spacing: .02em; }
+  .bnav svg { width: 22px; height: 22px; }
+  .bnav .on { color: var(--gold-2); }
+  .bnav .on::before { content: ""; position: absolute; top: -6px; left: 30%; right: 30%; height: 3px; border-radius: 0 0 3px 3px; background: var(--gold-grad); }
+  .bnav .bcount { position: absolute; top: 2px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--gold-grad); color: var(--ink); font-size: .64rem; font-style: normal; font-weight: 800; display: grid; place-items: center; }
+  .bnav .bcount[hidden] { display: none; }
+  .content { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  .toast { bottom: calc(86px + env(safe-area-inset-bottom)); }
+}

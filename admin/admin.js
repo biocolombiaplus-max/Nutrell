@@ -147,9 +147,17 @@ function shell() {
       </header>
       <div class="savebar"><span>Cambios sin guardar</span><div class="actions"><button class="btn btn-line btn-sm" data-discard>Descartar</button><button class="btn btn-gold btn-sm" data-save>Guardar</button></div></div>
       <main class="content" id="view"></main>
+      <nav class="bnav" aria-label="Navegación">
+        <a href="#/inicio" data-bnav="inicio">${ic("home")}<span>Inicio</span></a>
+        <a href="#/pedidos" data-bnav="pedidos">${ic("orders")}<span>Pedidos</span><i class="bcount" data-bcount hidden></i></a>
+        <a href="#/productos" data-bnav="productos">${ic("box")}<span>Productos</span></a>
+        <a href="#/tienda" data-bnav="tienda">${ic("store")}<span>Tienda</span></a>
+        <button type="button" data-bmore>${ic("menu")}<span>Más</span></button>
+      </nav>
     </div>
   </div>`;
   $(".burger").onclick = () => { $(".side").classList.add("open"); $(".scrim").classList.add("show"); };
+  $("[data-bmore]").onclick = () => { $(".side").classList.add("open"); $(".scrim").classList.add("show"); };
   $(".scrim").onclick = closeSide;
   $("[data-logout]").onclick = async () => { await api("logout").catch(() => {}); location.hash = ""; S.status.admin = false; renderAuth(); };
   $("[data-save]").onclick = save;
@@ -158,7 +166,7 @@ function shell() {
   updateNewCount();
 }
 function closeSide() { $(".side")?.classList.remove("open"); $(".scrim")?.classList.remove("show"); }
-function updateNewCount() { const n = S.orders.filter((o) => o.estado === "nuevo").length; const el = $("[data-new-count]"); if (el) { el.hidden = !n; el.textContent = n; } }
+function updateNewCount() { const n = S.orders.filter((o) => o.estado === "nuevo").length; $$("[data-new-count], [data-bcount]").forEach((el) => { el.hidden = !n; el.textContent = n; }); }
 
 function markDirty() {
   S.dirty = JSON.stringify(S.cat) !== S.saved;
@@ -219,6 +227,8 @@ function route() {
   closeSide();
   const [, sec = "inicio", id] = location.hash.split("/");
   $$("[data-nav]").forEach((a) => a.classList.toggle("on", a.dataset.nav === sec));
+  $$("[data-bnav]").forEach((a) => a.classList.toggle("on", a.dataset.bnav === sec));
+  $("[data-bmore]")?.classList.toggle("on", !["inicio", "pedidos", "productos", "tienda"].includes(sec));
   const v = $("#view");
   const banner = !S.status.db ? `<div class="banner bad">${ic("warn")}<div>${dbSteps()}<div style="margin-top:12px"><button class="btn btn-dark btn-sm" data-check-db>Verificar conexión</button></div></div></div>`
     : S.status.defaultPassword ? `<div class="banner">${ic("lock")}<div><b>Estás usando la clave inicial 123456.</b> Cualquiera que la adivine puede entrar a tu panel. <a href="#/ajustes" style="text-decoration:underline">Cámbiala ahora en Configuración → Seguridad</a>.</div></div>` : "";
@@ -374,19 +384,19 @@ function drawChart(el, days) {
     for (let i = n - 1; i >= 0; i--) { const k = dayKey(Date.now() - i * 864e5); pts.push({ k, v: map[k] || 0 }); }
   }
   const W = el.clientWidth || 600, H = el.clientHeight || 260, pl = 56, pr = 12, pt = 14, pb = 28;
-  const max = Math.max(...pts.map((p) => p.v), 1);
+  const max = Math.max(...pts.map((p) => p.v), 100000);
   const step = niceStep(max / 4); const top = Math.ceil(max / step) * step || step;
   const x = (i) => pl + (i * (W - pl - pr)) / Math.max(1, pts.length - 1);
   const y = (v) => pt + (1 - v / top) * (H - pt - pb);
   const line = pts.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join("");
   const area = `${line}L${x(pts.length - 1)},${y(0)}L${x(0)},${y(0)}Z`;
-  const ticks = []; for (let v = 0; v <= top + 1; v += step) ticks.push(v);
-  const every = Math.ceil(pts.length / 6);
+  const ticks = []; for (let v = 0; v <= top + step / 2; v += step) ticks.push(v);
+  const every = Math.ceil(pts.length / Math.max(2, Math.floor((W - pl) / 78)));
   const fmtX = (k) => days === 1 ? k : new Date(k + "T12:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short" });
   const total = pts.reduce((s, p) => s + p.v, 0);
   el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Ventas por ${days === 1 ? "hora" : "día"}: total ${cop(total)}">
     ${ticks.map((v) => `<line x1="${pl}" x2="${W - pr}" y1="${y(v)}" y2="${y(v)}" stroke="rgba(13,13,14,.07)"/><text x="${pl - 10}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="#9a9aa1">${v >= 1e6 ? (v / 1e6).toLocaleString("es-CO") + " M" : v >= 1e3 ? Math.round(v / 1e3) + " mil" : v}</text>`).join("")}
-    ${pts.map((p, i) => i % every === 0 || i === pts.length - 1 ? `<text x="${x(i)}" y="${H - 6}" text-anchor="middle" font-size="11" fill="#9a9aa1">${esc(fmtX(p.k))}</text>` : "").join("")}
+    ${pts.map((p, i) => (i % every === 0 && pts.length - 1 - i >= every * 0.6) || i === pts.length - 1 ? `<text x="${x(i)}" y="${H - 6}" text-anchor="middle" font-size="11" fill="#9a9aa1">${esc(fmtX(p.k))}</text>` : "").join("")}
     <path d="${area}" fill="#a3792a" fill-opacity=".1"/>
     <path d="${line}" fill="none" stroke="#a3792a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
     <line class="xh" x1="0" x2="0" y1="${pt}" y2="${y(0)}" stroke="rgba(13,13,14,.25)" visibility="hidden"/>
