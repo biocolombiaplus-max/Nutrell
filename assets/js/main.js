@@ -210,22 +210,18 @@ async function payOnline(data, form) {
     }
     if (!res) res = await postJSON("order", { online: true, items: cart.map((i) => ({ id: i.id, units: i.units, qty: i.qty })), cupon: coupon ? coupon.code : "", cliente });
     store.set({ numero: res.numero, sig: cartSig(), tel: data.telefono }, "nutrell-pend");
-    await loadWompi();
+    // Checkout Web de Wompi: página de pago segura de Wompi. Al terminar, Wompi regresa a /pedido?id=… donde se confirma.
     const p = res.pay;
-    const checkout = new window.WidgetCheckout({
-      currency: p.currency, amountInCents: p.amountInCents, reference: p.reference, publicKey: p.publicKey,
-      signature: { integrity: p.signature.integrity }, redirectUrl: p.redirectUrl,
-      customerData: { fullName: p.customerData.fullName, phoneNumber: p.customerData.phoneNumber, phoneNumberPrefix: p.customerData.phoneNumberPrefix, ...(p.customerData.email ? { email: p.customerData.email } : {}) },
-    });
-    btn.disabled = false; btn.classList.remove("loading");
-    checkout.open(async (result) => {
-      const tx = result && result.transaction; if (!tx) return;
-      btn.disabled = true; btn.classList.add("loading");
-      let v = { status: tx.status, numero: res.numero, total: res.total, items: res.items };
-      try { v = await (await fetch(`/api/store?a=verify&id=${encodeURIComponent(tx.id)}`)).json(); } catch {}
-      btn.disabled = false; btn.classList.remove("loading");
-      afterPayment(v.status || tx.status, v.numero ? v : { ...v, numero: res.numero, total: res.total, items: res.items }, form);
-    });
+    const q = [
+      ["public-key", p.publicKey], ["currency", p.currency], ["amount-in-cents", p.amountInCents], ["reference", p.reference],
+      ["signature:integrity", p.signature.integrity], ["redirect-url", p.redirectUrl],
+      ["customer-data:full-name", p.customerData.fullName], ["customer-data:phone-number", p.customerData.phoneNumber],
+      ["customer-data:phone-number-prefix", p.customerData.phoneNumberPrefix], ["customer-data:email", p.customerData.email],
+    ].filter(([, v]) => v !== undefined && v !== null && v !== "")
+      .map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
+    const l = $("[data-pay-label]"); if (l) l.textContent = "Abriendo pago seguro de Wompi…";
+    location.href = `https://checkout.wompi.co/p/?${q}`;
+    return;
   } catch (e) {
     err.textContent = e.message; btn.disabled = false; btn.classList.remove("loading");
   }
@@ -487,6 +483,8 @@ document.addEventListener("DOMContentLoaded", () => {
   safe(initGallery);
   safe(initBuybox);
   safe(initPayStatus);
+  // Si el cliente vuelve con "Atrás" desde Wompi, el botón no debe quedar cargando
+  addEventListener("pageshow", (e) => { if (!e.persisted) return; const b = $("[data-place-order]"); if (b) { b.disabled = false; b.classList.remove("loading"); } safe(updatePayButton); });
 
   // Conteo de visitas (anónimo, una vez por sesión)
   safe(() => {
