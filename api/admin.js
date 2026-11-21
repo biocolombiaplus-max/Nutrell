@@ -16,7 +16,7 @@ export default async function handler(req, res) {
       const health = await dbHealth();
       const info = health.ok ? await passwordInfo().catch(() => ({ custom: false })) : { custom: false };
       const admin = await isAdmin(req).catch(() => false);
-      return send(res, 200, { db: health.ok, admin, defaultPassword: !info.custom, dbInfo: { mode: health.mode, ok: health.ok, ...(admin ? { error: health.error, ms: health.ms } : {}) } });
+      return send(res, 200, { db: health.ok, admin, defaultPassword: !info.custom, dbInfo: { mode: health.mode, ok: health.ok, ...(admin ? { error: health.error, ms: health.ms, vars: Object.keys(process.env).filter((k) => /REDIS|^KV_|_KV_|UPSTASH|STORAGE|WOMPI|ADMIN_/.test(k)).sort(), deploy: (process.env.VERCEL_GIT_COMMIT_SHA || "").slice(0, 7), env: process.env.VERCEL_ENV || "" } : {}) } });
     }
     if (a === "login" && req.method === "POST") {
       if (!(await rateLimit("login:" + ip(req), 8, 900))) return send(res, 429, { error: "Demasiados intentos. Espera 15 minutos." });

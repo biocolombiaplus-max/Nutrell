@@ -179,7 +179,9 @@ function alertBox(title, text) {
 }
 function dbSteps() {
   const h = S.status.dbInfo || {};
-  if (h.mode && h.mode !== "none" && !h.ok) return `<b>Se encontró la base de datos, pero no responde.</b><br>${esc(h.error || "")}<br>Revisa en Vercel → <b>Storage</b> que la base esté activa y conectada a este proyecto, y vuelve a desplegar.`;
+  const diag = h.vars ? `<div style="margin-top:10px;font-size:.8rem;opacity:.85">Diagnóstico · ambiente: <b>${esc(h.env || "—")}</b> · versión: <b>${esc(h.deploy || "—")}</b> · variables recibidas: <b>${h.vars.length ? esc(h.vars.join(", ")) : "ninguna"}</b></div>` : "";
+  if (h.mode && h.mode !== "none" && !h.ok) return `<b>Se encontró la base de datos, pero no responde.</b><br>${esc(h.error || "")}<br>Revisa en Vercel → <b>Storage</b> que la base esté activa y conectada a este proyecto, y vuelve a desplegar.${diag}`;
+  if (h.vars && h.env && h.env !== "production") return `<b>Estás viendo una versión de prueba (${esc(h.env)}), no la tienda principal.</b><br>En Vercel → Settings → Environment Variables, revisa que REDIS_URL también esté marcada para <b>${esc(h.env === "preview" ? "Preview" : "Development")}</b>, o entra desde www.nutrell.co/admin.${diag}`;
   return `<b>Tus cambios no se pueden guardar porque la tienda aún no tiene base de datos.</b>
     <ol style="margin:8px 0 0;padding-left:18px;display:grid;gap:4px">
       <li>En Vercel abre tu proyecto <b>nutrell</b> → pestaña <b>Storage</b>.</li>
@@ -187,7 +189,7 @@ function dbSteps() {
       <li>Cuando pregunte, conéctala al proyecto <b>nutrell</b> con <b>Production</b>, <b>Preview</b> y <b>Development</b> marcados → <b>Connect</b>.</li>
       <li>Ve a <b>Deployments</b> → en el último, menú <b>⋯</b> → <b>Redeploy</b>. <u>Este paso es obligatorio</u>.</li>
       <li>Vuelve aquí y toca <b>Verificar conexión</b>.</li>
-    </ol>`;
+    </ol>${diag}`;
 }
 function dbHelp() {
   const m = document.createElement("div"); m.className = "modal-bg";
