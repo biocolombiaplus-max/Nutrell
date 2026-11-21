@@ -165,11 +165,50 @@ function markDirty() {
   $(".savebar")?.classList.toggle("show", S.dirty);
 }
 async function save() {
+  if (!S.status.db) return dbHelp();
   const b = $("[data-save]"); b.disabled = true; b.textContent = "Guardando…";
-  try { S.cat = await api("save", S.cat); S.saved = JSON.stringify(S.cat); markDirty(); toast("Cambios publicados en la tienda"); route(); }
-  catch (e) { toast(e.message, true); }
+  try { S.cat = await api("save", S.cat); S.saved = JSON.stringify(S.cat); markDirty(); toast("✓ Cambios guardados y publicados en la tienda"); route(); }
+  catch (e) { alertBox("No se pudieron guardar los cambios", e.message); }
   b.disabled = false; b.textContent = "Guardar";
 }
+function alertBox(title, text) {
+  const m = document.createElement("div"); m.className = "modal-bg";
+  m.innerHTML = `<div class="modal" role="alertdialog" aria-modal="true"><h3>${esc(title)}</h3><p>${esc(text)}</p><div class="acts"><button class="btn btn-dark" data-ok>Entendido</button></div></div>`;
+  document.body.appendChild(m);
+  m.addEventListener("click", (e) => { if (e.target === m || e.target.closest("[data-ok]")) m.remove(); });
+}
+function dbSteps() {
+  const h = S.status.dbInfo || {};
+  if (h.mode && h.mode !== "none" && !h.ok) return `<b>Se encontró la base de datos, pero no responde.</b><br>${esc(h.error || "")}<br>Revisa en Vercel → <b>Storage</b> que la base esté activa y conectada a este proyecto, y vuelve a desplegar.`;
+  return `<b>Tus cambios no se pueden guardar porque la tienda aún no tiene base de datos.</b>
+    <ol style="margin:8px 0 0;padding-left:18px;display:grid;gap:4px">
+      <li>En Vercel abre tu proyecto <b>nutrell</b> → pestaña <b>Storage</b>.</li>
+      <li><b>Create Database</b> → elige <b>Upstash for Redis</b> o <b>Redis</b> (plan gratis) → <b>Continue</b> / <b>Create</b>.</li>
+      <li>Cuando pregunte, conéctala al proyecto <b>nutrell</b> con <b>Production</b>, <b>Preview</b> y <b>Development</b> marcados → <b>Connect</b>.</li>
+      <li>Ve a <b>Deployments</b> → en el último, menú <b>⋯</b> → <b>Redeploy</b>. <u>Este paso es obligatorio</u>.</li>
+      <li>Vuelve aquí y toca <b>Verificar conexión</b>.</li>
+    </ol>`;
+}
+function dbHelp() {
+  const m = document.createElement("div"); m.className = "modal-bg";
+  m.innerHTML = `<div class="modal" role="alertdialog" aria-modal="true" style="width:min(560px,100%)"><h3>Falta conectar la base de datos</h3><div style="color:var(--muted);margin-bottom:18px">${dbSteps()}</div><div class="acts"><button class="btn btn-line" data-ok>Cerrar</button><button class="btn btn-dark" data-check>Verificar conexión</button></div></div>`;
+  document.body.appendChild(m);
+  m.addEventListener("click", async (e) => {
+    if (e.target === m || e.target.closest("[data-ok]")) m.remove();
+    if (e.target.closest("[data-check]")) { m.remove(); await checkDb(); }
+  });
+}
+async function checkDb() {
+  try { S.status = await (await fetch("/api/admin?a=status", { credentials: "same-origin", cache: "no-store" })).json(); } catch {}
+  if (S.status.db) {
+    toast("✓ Base de datos conectada");
+    const local = S.cat; S.cat = await api("catalog"); S.saved = JSON.stringify(S.cat);
+    if (JSON.stringify(local) !== S.saved) { S.cat = local; markDirty(); toast("✓ Conectada. Toca Guardar para publicar tus cambios."); }
+    await reloadOrders(); updateNewCount();
+  } else toast(S.status.dbInfo?.mode && S.status.dbInfo.mode !== "none" ? "La base de datos no responde" : "Aún no se detecta la base de datos. ¿Hiciste Redeploy?", true);
+  route();
+}
+document.addEventListener("click", (e) => { if (e.target.closest("[data-check-db]")) checkDb(); });
 window.addEventListener("beforeunload", (e) => { if (S.dirty) { e.preventDefault(); e.returnValue = ""; } });
 window.addEventListener("hashchange", route);
 
@@ -179,7 +218,7 @@ function route() {
   const [, sec = "inicio", id] = location.hash.split("/");
   $$("[data-nav]").forEach((a) => a.classList.toggle("on", a.dataset.nav === sec));
   const v = $("#view");
-  const banner = !S.status.db ? `<div class="banner">${ic("warn")}<div><b>Conecta la base de datos para empezar a vender y guardar cambios.</b><br>En Vercel: tu proyecto → <b>Storage</b> → <b>Create Database</b> → <b>Upstash for Redis</b> (plan gratis) → <b>Connect</b>. Luego vuelve a desplegar. Mientras tanto ves el catálogo inicial y los pedidos llegan solo por WhatsApp.</div></div>`
+  const banner = !S.status.db ? `<div class="banner bad">${ic("warn")}<div>${dbSteps()}<div style="margin-top:12px"><button class="btn btn-dark btn-sm" data-check-db>Verificar conexión</button></div></div></div>`
     : S.status.defaultPassword ? `<div class="banner">${ic("lock")}<div><b>Estás usando la clave inicial 123456.</b> Cualquiera que la adivine puede entrar a tu panel. <a href="#/ajustes" style="text-decoration:underline">Cámbiala ahora en Configuración → Seguridad</a>.</div></div>` : "";
   if (["inicio", "pedidos", "clientes"].includes(sec) && S.status.db && Date.now() - (S.ordersAt || 0) > 4000) { S.ordersAt = Date.now(); reloadOrders().then(() => { updateNewCount(); if ((location.hash.split("/")[1] || "inicio") === sec) { const y = scrollY; route(); scrollTo(0, y); } }); }
   const views = { inicio: vDashboard, pedidos: id ? () => vOrder(id) : vOrders, productos: id ? () => vProduct(id) : vProducts, clientes: vCustomers, descuentos: vDiscounts, tienda: vContent, colecciones: vCollections, ajustes: vSettings };

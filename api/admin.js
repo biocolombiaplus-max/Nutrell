@@ -2,7 +2,7 @@
 import crypto from "node:crypto";
 import { getCatalog, saveCatalog, listOrders, updateOrder, deleteOrder, normalize } from "../lib/catalog.js";
 import seed from "../lib/seed.js";
-import { pipeline, cmd, dbConfigured, K, rateLimit } from "../lib/db.js";
+import { pipeline, cmd, dbConfigured, dbHealth, K, rateLimit } from "../lib/db.js";
 import { wompiConfig, saveWompi, publicWompi } from "../lib/wompi.js";
 import { passwordInfo, checkPassword, setPassword, sessionCookie, clearCookie, isAdmin } from "../lib/auth.js";
 import { query, body, ip, send } from "../lib/http.js";
@@ -13,8 +13,10 @@ export default async function handler(req, res) {
   const a = query(req).a;
   try {
     if (a === "status") {
-      const info = await passwordInfo().catch(() => ({ custom: false }));
-      return send(res, 200, { db: dbConfigured(), admin: await isAdmin(req), defaultPassword: !info.custom });
+      const health = await dbHealth();
+      const info = health.ok ? await passwordInfo().catch(() => ({ custom: false })) : { custom: false };
+      const admin = await isAdmin(req).catch(() => false);
+      return send(res, 200, { db: health.ok, admin, defaultPassword: !info.custom, dbInfo: { mode: health.mode, ok: health.ok, ...(admin ? { error: health.error, ms: health.ms } : {}) } });
     }
     if (a === "login" && req.method === "POST") {
       if (!(await rateLimit("login:" + ip(req), 8, 900))) return send(res, 429, { error: "Demasiados intentos. Espera 15 minutos." });

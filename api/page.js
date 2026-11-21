@@ -4,7 +4,7 @@ import { renderIndex, renderProduct, render404, renderSitemap, renderRobots, ren
 import { wompiConfig } from "../lib/wompi.js";
 import { query, send } from "../lib/http.js";
 
-const CACHE = "public, s-maxage=20, stale-while-revalidate=86400";
+const CACHE = "public, s-maxage=10, stale-while-revalidate=60";
 
 export default async function handler(req, res) {
   try {
