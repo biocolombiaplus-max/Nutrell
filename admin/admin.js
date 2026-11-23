@@ -847,7 +847,7 @@ function vSettings() {
   <div class="grid2"><div>
     <div class="card"><h2>Datos de la tienda</h2>
       <div class="row2">${fld("Nombre", "sitio.nombre")}${fld("Dirección web", "sitio.url", { help: "Se usa para Google y redes sociales." })}</div>
-      <div class="row2">${fld("WhatsApp de ventas", "sitio.whatsapp", { help: "Con indicativo, sin + ni espacios. Ej.: 573001234567" })}${fld("Correo de contacto", "sitio.email", { type: "email" })}</div>
+      <div class="row2">${fld("Líneas de atención (una por línea)", "sitio.lineas", { rows: 2, t: "lines", help: "Se muestran en el pie de página y el menú, con botón de WhatsApp y de llamada." })}${fld("WhatsApp de ventas", "sitio.whatsapp", { help: "Con indicativo, sin + ni espacios. Ej.: 573001234567" })}${fld("Correo de contacto", "sitio.email", { type: "email" })}</div>
       <div class="row3">${fld("Instagram (URL)", "sitio.instagram")}${fld("Facebook (URL)", "sitio.facebook")}${fld("TikTok (URL)", "sitio.tiktok")}</div>
     </div>
     <div class="card"><h2>Envíos</h2><div class="row2">${money("Envío gratis desde", "sitio.envioGratisDesde")}${money("Costo de envío", "sitio.costoEnvio", "En 0 se muestra “A confirmar” y lo fijas en cada pedido.")}</div></div>

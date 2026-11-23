@@ -1273,3 +1273,27 @@ body:has(.pt-bar.show) .wa-float { bottom: 100px; }
 .cb-save { justify-self: start; font-size: .76rem; font-weight: 800; color: #000; background: var(--gold-grad); padding: 5px 10px; border-radius: 999px; margin-top: -6px; }
 @media (max-width: 959px) { .buybox > .pay-marks.pdp { order: 12; } }
 .footer .pl-nequi { border-color: rgba(255,255,255,.3); }
+
+/* Atención al cliente (pie de página) */
+.contact-band { display: grid; gap: 28px; align-items: center; padding: 34px; margin-bottom: 56px; border-radius: 28px; background: linear-gradient(140deg, #1d1a14, #121214 60%); border: 1px solid rgba(233,207,138,.2); }
+@media (min-width: 1000px) { .contact-band { grid-template-columns: .8fr 1.6fr; gap: 40px; } }
+.cb-head h3 { color: #fff; font-size: clamp(1.6rem, 3vw, 2.2rem); margin: 12px 0 8px; }
+.cb-head p { margin: 0; color: rgba(255,255,255,.6); max-width: 40ch; }
+.cb-head .eyebrow { color: var(--gold-2); }
+.cb-cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); }
+.cb-card { display: flex; gap: 14px; align-items: center; padding: 18px; border-radius: 20px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); transition: border-color .3s, transform .3s var(--ease); min-width: 0; }
+.cb-card:hover { border-color: rgba(233,207,138,.45); transform: translateY(-3px); }
+.cb-ico { width: 48px; height: 48px; flex: none; border-radius: 14px; display: grid; place-items: center; background: var(--gold-grad); color: var(--ink); }
+.cb-ico.wa { background: #25d366; color: #fff; }
+.cb-ico svg { width: 24px; height: 24px; }
+.cb-txt { display: grid; gap: 2px; min-width: 0; }
+.cb-txt small { font-size: .66rem; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.5); font-weight: 700; }
+.cb-txt b { color: #fff; font-size: 1.25rem; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+.cb-txt b.cb-mail { font-size: 1rem; letter-spacing: 0; overflow-wrap: anywhere; }
+.cb-links { display: flex; gap: 12px; margin-top: 4px; font-size: .78rem; font-weight: 700; }
+.cb-links a { color: var(--gold-2) !important; display: inline-flex; align-items: center; gap: 4px; }
+.cb-links a:hover { text-decoration: underline; }
+.cb-links svg { width: 13px; height: 13px; }
+@media (max-width: 600px) { .contact-band { padding: 22px; border-radius: 22px; } }
+.mm-contact { margin-top: auto; padding-top: 22px; display: grid; gap: 6px; border-top: 1px solid rgba(255,255,255,.1); }
+.mobile-menu .mm-contact a { font-family: var(--ff-body); font-size: 1rem; border: 0; padding: 2px 0; color: var(--gold-2); }
