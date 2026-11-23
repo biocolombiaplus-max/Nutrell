@@ -8,6 +8,9 @@ const CONFIG = NT.config;
 const PRODUCTS = NT.products;
 const COUPONS = NT.coupons || [];
 const WOMPI = !!NT.wompi;
+const CAMPAIGN = NT.campaign || null;
+const NEQUI = NT.nequi || null;
+const fmtTel = (t) => String(t || "").replace(/\D/g, "").replace(/^(\d{3})(\d{3})(\d{4})$/, "$1 $2 $3");
 
 /* ---------- Utilidades ---------- */
 const $ = (s, c = document) => c.querySelector(s);
@@ -92,6 +95,10 @@ function showView(v) {
 }
 function goCheckout() {
   if (!cart.length) return;
+  if (CAMPAIGN && !coupon) {
+    const r = couponFor(CAMPAIGN.code, cartTotal());
+    if (r.coupon) { coupon = r.coupon; const inp = $(".checkout [name=cupon]"), msg = $("[data-coupon-msg]"); if (inp) inp.value = CAMPAIGN.code; if (msg) { msg.textContent = `${CAMPAIGN.name}: ${CAMPAIGN.pct}% de descuento aplicado.`; msg.className = "co-msg ok"; } }
+  }
   showView("checkout"); renderCheckoutTotals();
   const saved = store.get("nutrell-cliente");
   if (saved) for (const [k, v] of Object.entries(saved)) { const f = $(`.checkout [name="${k}"]`); if (f && f.type !== "radio" && !f.value) f.value = v; }
@@ -135,16 +142,17 @@ function renderCheckoutTotals() {
 function payMethod() { return $('.checkout input[name="metodoPago"]:checked')?.value || ""; }
 function updatePayButton() {
   const l = $("[data-pay-label]"); if (!l) return;
-  const t = totals(), online = payMethod() === "__wompi";
+  const t = totals(), online = payMethod() === "__wompi", nq = payMethod() === "__nequi";
   l.textContent = online ? `Pagar ${cop(t.total)} de forma segura` : `Confirmar pedido · ${cop(t.total)}`;
   $("[data-place-order]")?.querySelector("svg")?.style.setProperty("display", online ? "" : "none");
-  const n = $("[data-pay-note]"); if (n) n.textContent = online ? "Pagos procesados por Wompi, de Bancolombia. Tus datos viajan cifrados." : "Al confirmar recibirás tu número de pedido y te contactaremos por WhatsApp.";
+  if (nq) l.textContent = `Confirmar y pagar con Nequi · ${cop(t.total)}`;
+  const n = $("[data-pay-note]"); if (n) n.textContent = online ? "Pagos procesados por Wompi, de Bancolombia. Tus datos viajan cifrados." : nq ? "Al confirmar te mostramos el número Nequi y el valor exacto a transferir." : "Al confirmar recibirás tu número de pedido y te contactaremos por WhatsApp.";
 }
 function orderMessage(num, form, t) {
   const lines = cart.map((i) => `• ${i.qty} x ${PRODUCTS[i.id].name}${i.units > 1 ? ` (Pack x${i.units})` : ""} — ${cop(i.unit * i.qty)}`);
   return `¡Hola Nutrell! ${num ? `Acabo de hacer el pedido *#${num}*` : "Quiero hacer este pedido"}:\n\n${lines.join("\n")}\n\n` +
     (t.discount ? `Descuento: −${cop(t.discount)}\n` : "") + `Envío: ${t.free ? "gratis" : t.ship ? cop(t.ship) : "a confirmar"}\n*Total: ${cop(t.total)}*\n\n` +
-    `Nombre: ${form.nombre}\nCelular: ${form.telefono}\nCiudad: ${form.ciudad}${form.departamento ? ", " + form.departamento : ""}\nDirección: ${form.direccion}\nPago: ${form.metodoPago}${form.notas ? `\nNotas: ${form.notas}` : ""}`;
+    `Nombre: ${form.nombre}\nCelular: ${form.telefono}\nCiudad: ${form.ciudad}${form.departamento ? ", " + form.departamento : ""}\nDirección: ${form.direccion}\nPago: ${form.metodoPago === "__nequi" ? "Nequi" : form.metodoPago}${form.notas ? `\nNotas: ${form.notas}` : ""}`;
 }
 async function placeOrder(e) {
   e.preventDefault();
@@ -177,6 +185,18 @@ async function placeOrder(e) {
   cart = []; coupon = null; store.set(cart); renderCart(); form.reset();
   btn.disabled = false; btn.classList.remove("loading");
   setDone("ok", result ? "¡Gracias por tu compra!" : "¡Ya casi!", null);
+  if (data.metodoPago === "__nequi" && NEQUI) {
+    const total = result ? result.total : t.total, num = result ? `#${result.numero}` : "";
+    setDone("ok", "¡Pedido recibido!", `Para despachar tu pedido <b>${num}</b>, transfiere por Nequi y envíanos el comprobante.`);
+    $("[data-done-sum]").insertAdjacentHTML("beforebegin", `<div class="nequi-box">
+      <div class="nb-head"><i class="pl pl-nequi">nequi</i><span>Paga desde tu app Nequi</span></div>
+      <div class="nb-row"><small>Número</small><b>${fmtTel(NEQUI.number)}</b><button type="button" class="nb-copy" data-copy="${NEQUI.number}">Copiar</button></div>
+      <div class="nb-row"><small>A nombre de</small><b>${escH(NEQUI.holder)}</b></div>
+      <div class="nb-row"><small>Valor exacto</small><b>${cop(total)}</b><button type="button" class="nb-copy" data-copy="${Math.round(total)}">Copiar</button></div>
+      <ol><li>Abre Nequi → <b>Envía plata</b> → <b>A Nequi</b>.</li><li>Escribe el número y el valor exacto.</li><li>Toma captura del comprobante y envíanosla por WhatsApp.</li></ol></div>`);
+    $("[data-done-wa]").href = waLink(`¡Hola Nutrell! Pagué por Nequi el pedido ${num} por ${cop(total)}. Te envío el comprobante 👇`);
+    $("[data-done-wa-label]").textContent = "Enviar comprobante por WhatsApp";
+  }
   showView("done");
   if (!result) window.open(waLink(msg), "_blank", "noopener");
 }
@@ -282,6 +302,23 @@ async function initPayStatus() {
   check();
 }
 
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-copy]"); if (!b) return;
+  navigator.clipboard?.writeText(b.dataset.copy).then(() => { b.textContent = "¡Copiado!"; setTimeout(() => (b.textContent = "Copiar"), 1600); }).catch(() => {});
+});
+
+/* ---------- Black Friday: cuenta regresiva ---------- */
+function startBfCountdown() {
+  const els = $$("[data-bf-countdown]"); if (!els.length || !CAMPAIGN?.ends) return;
+  const end = new Date(CAMPAIGN.ends).getTime();
+  const tick = () => {
+    let d = Math.max(0, end - Date.now());
+    const v = [Math.floor(d / 864e5), Math.floor((d % 864e5) / 36e5), Math.floor((d % 36e5) / 6e4), Math.floor((d % 6e4) / 1e3)];
+    els.forEach((el) => $$("b", el).forEach((b, i) => (b.textContent = String(v[i]).padStart(2, "0"))));
+  };
+  tick(); setInterval(tick, 1000);
+}
+
 /* ---------- Toast ---------- */
 let toastTimer;
 function toast(msg) {
@@ -370,6 +407,7 @@ function initBuybox() {
     $("[data-save]", box).textContent = before > total ? `Ahorras ${cop(before - total)}` : "";
     $("[data-save]", box).style.display = before > total ? "" : "none";
     $$("[data-sticky-price]").forEach((el) => (el.textContent = cop(total)));
+    $$("[data-bf-price]").forEach((el) => (el.textContent = cop(Math.round(total * (1 - (CAMPAIGN?.pct || 0) / 100)))));
     qtyEl.textContent = qty;
   };
   $$("[data-pack-price]", box).forEach((el) => {
@@ -460,7 +498,7 @@ document.addEventListener("DOMContentLoaded", () => {
   safe(() => {
     $$("[data-kit]").forEach((b) => b.addEventListener("click", () => {
       let ok = 0; b.dataset.kit.split(",").forEach((id) => { if (addToCart(id, 1, 1, true)) ok++; });
-      if (ok) { toast("Ritual agregado a tu carrito"); setTimeout(openCart, 350); }
+      if (ok) { toast("Combo agregado a tu carrito"); setTimeout(openCart, 350); }
     }));
     const applyFilter = (c) => {
       $$("[data-filter]").forEach((f) => f.classList.toggle("on", f.dataset.filter === c));
@@ -483,6 +521,7 @@ document.addEventListener("DOMContentLoaded", () => {
   safe(initGallery);
   safe(initBuybox);
   safe(initPayStatus);
+  safe(startBfCountdown);
   // Si el cliente vuelve con "Atrás" desde Wompi, el botón no debe quedar cargando
   addEventListener("pageshow", (e) => { if (!e.persisted) return; const b = $("[data-place-order]"); if (b) { b.disabled = false; b.classList.remove("loading"); } safe(updatePayButton); });
 

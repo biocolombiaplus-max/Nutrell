@@ -360,3 +360,4 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 720px; }
 .kvg b { font-weight: 700; word-break: break-word; }
 @media (max-width: 520px) { .kvg { grid-template-columns: 1fr; } }
 .card h2 svg, .card h3 svg { width: 18px; height: 18px; flex: none; }
+.bf-card { border-color: rgba(201,162,75,.5); background: linear-gradient(160deg, #fffaf0, #fff 60%); }

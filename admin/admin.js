@@ -127,7 +127,7 @@ setInterval(async () => {
 
 /* ---------- Estructura ---------- */
 const NAV = [["inicio", "Inicio", "home"], ["pedidos", "Pedidos", "orders"], ["productos", "Productos", "box"], ["clientes", "Clientes", "users"], ["mayoristas", "Mayoristas", "brief"], ["descuentos", "Descuentos", "tag"],
-  [null, "Canal de venta"], ["tienda", "Tienda online", "store"], ["colecciones", "Colecciones y rituales", "layers"], [null, ""], ["ajustes", "Configuración", "cog"]];
+  [null, "Canal de venta"], ["tienda", "Tienda online", "store"], ["colecciones", "Colecciones y combos", "layers"], [null, ""], ["ajustes", "Configuración", "cog"]];
 function shell() {
   $("#root").innerHTML = `<div class="app">
     <aside class="side">
@@ -556,7 +556,7 @@ function vProducts() {
 
 function newProduct() {
   const base = { slug: "", activo: false, stock: null, nombre: "", h1: ["", ""], categoria: S.cat.categorias[0]?.id || "", etiqueta: "Nuevo", tamano: "", sabor: "", formato: "Polvo", precio: 0, antes: 0,
-    packs: [{ unidades: 1, descuento: 0, texto: "Para empezar tu ritual" }, { unidades: 2, descuento: 10, texto: "Ahorra 10%" }, { unidades: 3, descuento: 15, texto: "Envío gratis" }],
+    packs: [{ unidades: 1, descuento: 0, texto: "Para empezar tu rutina" }, { unidades: 2, descuento: 10, texto: "Ahorra 10%" }, { unidades: 3, descuento: 15, texto: "Envío gratis" }],
     tema: { acento: "#c9a24b", suave: "#efe4cc", oscuro: "#1a1712" }, imagenes: { principal: "", mini: "", foto: "", d1: "", d2: "", og: "" },
     resumen: "", subtitulo: "", seoTitulo: "", seoDescripcion: "", descripcion: [], destacados: [], cifra: ["", ""], ingredientes: [], libreDe: [], pasos: [], advertencias: "Suplemento dietario. Consulta a tu médico si estás en embarazo, lactancia o tienes alguna condición de salud.", faq: [] };
   return base;
@@ -746,8 +746,18 @@ function vCustomers() {
 function vDiscounts() {
   const used = {}; S.orders.filter(valid).forEach((o) => { if (o.cupon) { used[o.cupon] ??= { n: 0, v: 0 }; used[o.cupon].n++; used[o.cupon].v += o.descuento; } });
   later((v) => { bindInputs(v, () => S.cat); wireRepeaters(v, (k) => S.cat[k], route); });
-  return `<div class="ph"><div><h1>Descuentos</h1><div class="sub">Códigos que tus clientes aplican al finalizar la compra</div></div></div>
-  <div class="card">${repeater("cupones", S.cat.cupones, (i) => `<div class="row3">${fld("Código", `cupones.${i}.codigo`, { attrs: 'style="text-transform:uppercase"' })}${fld("Descuento %", `cupones.${i}.porcentaje`, { type: "number", t: "num", attrs: 'min="1" max="90"' })}${money("Compra mínima", `cupones.${i}.minimo`)}</div>${sw("Activo", `cupones.${i}.activo`)}`,
+  const k = S.cat.campana || {}, bfUsed = used[String(k.codigo || "").toUpperCase()];
+  const bfOn = k.activo && k.codigo && Number(k.porcentaje) > 0 && (!k.fin || new Date(k.fin) > new Date());
+  return `<div class="ph"><div><h1>Descuentos</h1><div class="sub">Campañas y códigos que tus clientes aplican al finalizar la compra</div></div></div>
+  <div class="card bf-card"><h2>Campaña especial · ${esc(k.nombre || "Black Friday")} <small>${bfOn ? '<span class="badge b-activo">Activa en la tienda</span>' : '<span class="badge b-borrador">Inactiva</span>'}</small></h2>
+    <p class="hint">Mientras esté activa, la tienda muestra la sección de la campaña con cuenta regresiva, la barra superior, sellos en los productos y el precio con descuento. El código se aplica solo al pagar.${bfUsed ? ` Usada en <b>${bfUsed.n}</b> pedidos (${cop(bfUsed.v)} en descuentos).` : ""}</p>
+    <div style="margin-bottom:14px">${sw("Campaña activa", "campana.activo")}</div>
+    <div class="row3">${fld("Nombre", "campana.nombre", { ph: "Black Friday" })}${fld("Código", "campana.codigo", { attrs: 'style="text-transform:uppercase"' })}${fld("Descuento %", "campana.porcentaje", { type: "number", t: "num", attrs: 'min="1" max="90"' })}</div>
+    ${fld("Texto de la sección", "campana.texto", { rows: 2 })}
+    ${fld("Termina el", "campana.fin", { type: "datetime-local", t: "dt", help: "Al llegar esta fecha la campaña se apaga sola." })}
+    <a class="btn btn-line btn-sm" href="/#black-friday" target="_blank" rel="noopener">${ic("ext")}Ver en la tienda</a>
+  </div>
+  <div class="card"><h2>Códigos de descuento</h2>${repeater("cupones", S.cat.cupones, (i) => `<div class="row3">${fld("Código", `cupones.${i}.codigo`, { attrs: 'style="text-transform:uppercase"' })}${fld("Descuento %", `cupones.${i}.porcentaje`, { type: "number", t: "num", attrs: 'min="1" max="90"' })}${money("Compra mínima", `cupones.${i}.minimo`)}</div>${sw("Activo", `cupones.${i}.activo`)}`,
     { title: (i, c) => `${c.codigo || "Nuevo código"}${used[String(c.codigo).toUpperCase()] ? ` · usado ${used[String(c.codigo).toUpperCase()].n} veces (${cop(used[String(c.codigo).toUpperCase()].v)})` : ""}`, addLabel: "Crear código de descuento", blank: { codigo: "", porcentaje: 10, minimo: 0, activo: true } })}</div>`;
 }
 
@@ -796,12 +806,12 @@ function vCollections() {
     wireRepeaters(v, (k) => S.cat[k], () => { const y = scrollY; route(); scrollTo(0, y); });
     $$("[data-rit]", v).forEach((cb) => cb.onchange = () => { const r = S.cat.rituales[Number(cb.dataset.rit)]; r.productos = $$(`[data-rit="${cb.dataset.rit}"]:checked`, v).map((x) => x.value); markDirty(); });
   });
-  return `<div class="ph"><div><h1>Colecciones y rituales</h1><div class="sub">Categorías por objetivo y combos de productos</div></div></div>
+  return `<div class="ph"><div><h1>Colecciones y combos</h1><div class="sub">Categorías por objetivo y combos de productos</div></div></div>
   <div class="cols cols-2">
     <div class="card"><h2>Categorías (objetivos)</h2><p class="hint">Agrupan los productos en "Compra por objetivo" y en los filtros.</p>
       ${repeater("categorias", S.cat.categorias, (i) => `<div class="row2">${fld("Nombre", `categorias.${i}.nombre`)}${fld("Código", `categorias.${i}.id`, { help: "Sin espacios. Ej.: belleza" })}</div>${fld("Frase", `categorias.${i}.frase`)}<span class="help muted">${prods.filter((p) => p.categoria === S.cat.categorias[i].id).length} productos</span>`, { title: (i, c) => c.nombre || "Categoría", addLabel: "Agregar categoría", blank: { id: "nueva", nombre: "Nueva categoría", frase: "" } })}</div>
-    <div class="card"><h2>Rituales (combos)</h2><p class="hint">Se agregan completos al carrito con un clic.</p>
-      ${repeater("rituales", S.cat.rituales, (i) => `${fld("Nombre", `rituales.${i}.nombre`)}${fld("Frase", `rituales.${i}.frase`)}<div class="checks">${prods.map((p) => `<label><input type="checkbox" value="${esc(p.slug)}" data-rit="${i}"${S.cat.rituales[i].productos.includes(p.slug) ? " checked" : ""}>${esc(p.nombre)}</label>`).join("")}</div>`, { title: (i, r) => r.nombre || "Ritual", addLabel: "Agregar ritual", blank: { nombre: "Nuevo ritual", frase: "", productos: [] } })}</div>
+    <div class="card"><h2>Combos</h2><p class="hint">Se agregan completos al carrito con un clic.</p>
+      ${repeater("rituales", S.cat.rituales, (i) => `${fld("Nombre", `rituales.${i}.nombre`)}${fld("Frase", `rituales.${i}.frase`)}<div class="checks">${prods.map((p) => `<label><input type="checkbox" value="${esc(p.slug)}" data-rit="${i}"${S.cat.rituales[i].productos.includes(p.slug) ? " checked" : ""}>${esc(p.nombre)}</label>`).join("")}</div>`, { title: (i, r) => r.nombre || "Combo", addLabel: "Agregar combo", blank: { nombre: "Nuevo combo", frase: "", productos: [] } })}</div>
   </div>`;
 }
 
@@ -842,6 +852,11 @@ function vSettings() {
     </div>
     <div class="card"><h2>Envíos</h2><div class="row2">${money("Envío gratis desde", "sitio.envioGratisDesde")}${money("Costo de envío", "sitio.costoEnvio", "En 0 se muestra “A confirmar” y lo fijas en cada pedido.")}</div></div>
     <div class="card"><h2>Pagos</h2><label class="f"><span>Métodos de pago aceptados</span><div class="chips-in" data-chips="pagos"></div><span class="help">El primero es el seleccionado por defecto.</span></label></div>
+    <div class="card"><h2>Nequi directo <small>sin comisión</small></h2>
+      <p class="hint">El cliente transfiere a tu Nequi y te envía el comprobante por WhatsApp. El pedido queda con pago <b>Pendiente</b> hasta que lo marques como <b>Pagado</b>.</p>
+      <div style="margin-bottom:14px">${sw("Mostrar Nequi como método de pago", "sitio.nequiActivo")}</div>
+      <div class="row2">${fld("Número Nequi", "sitio.nequiNumero", { ph: "3001234567" })}${fld("A nombre de", "sitio.nequiTitular")}</div>
+    </div>
     <form class="card" data-wompi><h2>Pagos en línea · Wompi <small data-w-state></small></h2>
       <p class="hint">Recibe pagos con tarjeta, PSE, Nequi y Bancolombia. Copia las llaves desde tu panel de Wompi → <b>Desarrolladores</b>. No compartas los secretos con nadie.</p>
       <label class="sw" style="margin-bottom:14px"><input type="checkbox" name="activo"><i></i>Mostrar “Paga en línea” en la tienda</label>
