@@ -1394,3 +1394,32 @@ body:has(.pt-bar.show) .wa-float { bottom: 100px; }
 .maq-teaser .mt-img { width: 100%; aspect-ratio: 3/2; object-fit: cover; border-radius: 18px; box-shadow: 0 0 0 1px rgba(233,207,138,.3); }
 .maq-teaser .btn { margin-top: 18px; }
 @media (max-width: 960px) { .maq-hero .hero-visual { margin: 8px 0 34px; } .maq-photo { width: 100%; } }
+
+/* Maquila en la página principal */
+.hm-maq { position: relative; overflow: hidden; isolation: isolate; color: #fff; padding: clamp(70px, 9vw, 120px) 0; background: #0a0a0b; }
+.hm-glow { position: absolute; inset: 0; z-index: -1; background: radial-gradient(40% 60% at 20% 50%, rgba(201,162,75,.3), transparent 65%), radial-gradient(40% 50% at 100% 0%, rgba(201,162,75,.14), transparent 60%); }
+.hm-maq::after { content: ""; position: absolute; inset: 0; z-index: -1; opacity: .35; background-image: radial-gradient(rgba(233,207,138,.18) 1px, transparent 1px); background-size: 26px 26px; mask-image: linear-gradient(90deg, transparent, #000 40%, transparent); }
+.hm-grid { display: grid; gap: 56px; align-items: center; }
+@media (min-width: 980px) { .hm-grid { grid-template-columns: 1.05fr .95fr; gap: 72px; } }
+.hm-visual { position: relative; }
+.hm-frame { border-radius: 30px; overflow: hidden; aspect-ratio: 3 / 2; background: #e9e9ea; box-shadow: 0 60px 110px -40px rgba(0,0,0,.95), 0 0 0 1px rgba(233,207,138,.35), 0 0 0 10px rgba(255,255,255,.035); transform: perspective(1200px) rotateY(4deg); transition: transform 1s var(--ease); }
+.hm-visual:hover .hm-frame { transform: perspective(1200px) rotateY(0deg); }
+.hm-frame img { width: 100%; height: 100%; object-fit: cover; }
+.hm-badge { position: absolute; top: -26px; left: -18px; width: 108px; height: 108px; border-radius: 50%; background: var(--gold-grad); color: #000; display: grid; place-content: center; text-align: center; line-height: 1; transform: rotate(-10deg); box-shadow: 0 24px 44px -16px rgba(201,162,75,.8); animation: floaty 6s ease-in-out infinite; }
+.hm-badge b { font-size: 1.6rem; font-weight: 900; letter-spacing: -.02em; }
+.hm-badge span { font-size: .66rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; margin-top: 3px; }
+.hm-float { position: absolute; right: -14px; bottom: -30px; display: grid; gap: 3px; max-width: 300px; padding: 16px 20px; border-radius: 18px; background: rgba(13,13,14,.85); border: 1px solid rgba(233,207,138,.35); backdrop-filter: blur(14px); box-shadow: 0 24px 40px -20px rgba(0,0,0,.8); }
+.hm-float small { font-size: .62rem; letter-spacing: .16em; text-transform: uppercase; color: rgba(255,255,255,.55); font-weight: 700; }
+.hm-float b { font-family: var(--ff-display); font-size: 1.5rem; font-weight: 500; background: var(--gold-grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hm-float span { font-size: .76rem; color: rgba(255,255,255,.7); }
+.hm-copy .eyebrow { color: var(--gold-2); }
+.hm-copy h2 { margin: 16px 0 16px; font-size: clamp(2.2rem, 4.4vw, 3.6rem); }
+.hm-copy .lead { color: rgba(255,255,255,.66); margin: 0; }
+.hm-list { list-style: none; padding: 0; margin: 28px 0 32px; display: grid; gap: 4px; }
+.hm-list li { display: grid; grid-template-columns: 46px 1fr; gap: 14px; align-items: start; padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,.08); }
+.hm-list li > span { font-family: var(--ff-display); font-style: italic; font-size: 1.6rem; line-height: 1; background: var(--gold-grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hm-list b { display: block; font-size: 1.02rem; }
+.hm-list small { color: rgba(255,255,255,.55); font-size: .86rem; line-height: 1.45; }
+.hm-ctas { display: flex; flex-wrap: wrap; gap: 12px; }
+@media (max-width: 980px) { .hm-frame { transform: none; } .hm-float { right: 8px; bottom: -26px; } .hm-badge { left: 6px; top: -22px; } }
+@media (max-width: 600px) { .hm-badge { width: 82px; height: 82px; } .hm-badge b { font-size: 1.2rem; } .hm-float { position: relative; right: auto; bottom: auto; margin: -34px 14px 0; } .hm-frame { border-radius: 22px; } .hm-ctas .btn { flex: 1 1 100%; } }
