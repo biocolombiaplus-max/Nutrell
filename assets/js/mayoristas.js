@@ -53,6 +53,22 @@
     } catch (x) { err.textContent = x.message; btn.disabled = false; btn.classList.remove("loading"); }
   });
 
+  /* ---------- Cotización de maquila ---------- */
+  const mq = $("[data-maq-form]");
+  if (mq) mq.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const er = $("[data-maq-error]"), b = $("button[type=submit]", mq), d = Object.fromEntries(new FormData(mq));
+    const miss = ["empresa", "contacto", "telefono", "producto"].filter((k) => !String(d[k] || "").trim());
+    $$("input,select", mq).forEach((i) => i.classList.toggle("bad", miss.includes(i.name)));
+    if (miss.length) { er.textContent = "Completa los campos marcados con *."; return; }
+    if (!d.acepto) { er.textContent = "Debes autorizar el tratamiento de datos para continuar."; return; }
+    er.textContent = ""; b.disabled = true; b.classList.add("loading");
+    try {
+      await api("maquila", d);
+      mq.innerHTML = `<div class="ws-done"><div class="ps-ico">${ICON.check}</div><h3>¡Recibimos tu proyecto!</h3><p>Gracias, <b>${esc(d.contacto)}</b>. Un asesor de maquila te contactará pronto para revisar tu producto <b>${esc(d.producto)}</b>.</p></div>`;
+    } catch (x) { er.textContent = x.message; b.disabled = false; b.classList.remove("loading"); }
+  });
+
   /* ---------- Portal ---------- */
   const root = $("[data-portal]");
   if (!root) return;

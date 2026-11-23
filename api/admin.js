@@ -4,7 +4,7 @@ import { getCatalog, saveCatalog, listOrders, updateOrder, deleteOrder, normaliz
 import seed from "../lib/seed.js";
 import { pipeline, cmd, dbConfigured, dbHealth, K, rateLimit } from "../lib/db.js";
 import { wompiConfig, saveWompi, publicWompi } from "../lib/wompi.js";
-import { listMay, updateMay, deleteMay, publicMay } from "../lib/mayoristas.js";
+import { listMay, updateMay, deleteMay, publicMay, listMaquila, updateMaquila, deleteMaquila } from "../lib/mayoristas.js";
 import { passwordInfo, checkPassword, setPassword, sessionCookie, clearCookie, isAdmin } from "../lib/auth.js";
 import { query, body, ip, send } from "../lib/http.js";
 
@@ -37,6 +37,19 @@ export default async function handler(req, res) {
         if (!(await checkPassword(actual))) return send(res, 400, { error: "La clave actual no es correcta." });
         if (typeof nueva !== "string" || nueva.length < 8) return send(res, 400, { error: "La nueva clave debe tener al menos 8 caracteres." });
         await setPassword(nueva);
+        return send(res, 200, { ok: true });
+      }
+      case "maq-list":
+        if (!dbConfigured()) return send(res, 200, []);
+        return send(res, 200, await listMaquila());
+      case "maq-update": {
+        needDb();
+        const { id, ...patch } = await body(req);
+        return send(res, 200, await updateMaquila(String(id), patch));
+      }
+      case "maq-delete": {
+        needDb();
+        await deleteMaquila(String((await body(req)).id));
         return send(res, 200, { ok: true });
       }
       case "may-list":

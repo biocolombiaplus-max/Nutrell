@@ -1,5 +1,5 @@
 // API del portal de mayoristas: solicitud, ingreso, catálogo con precios del nivel y pedidos.
-import { registrar, login, sessionCookie, clearCookie, currentMay, portalData, crearPedido } from "../lib/mayoristas.js";
+import { solicitarMaquila, registrar, login, sessionCookie, clearCookie, currentMay, portalData, crearPedido } from "../lib/mayoristas.js";
 import { getOrder, payParams } from "../lib/catalog.js";
 import { dbConfigured, rateLimit } from "../lib/db.js";
 import { query, body, ip, send } from "../lib/http.js";
@@ -24,6 +24,11 @@ export default async function handler(req, res) {
       const { email, password } = await body(req);
       const m = await login(email, password);
       return send(res, 200, { ok: true }, { "Set-Cookie": await sessionCookie(req, m) });
+    }
+    if (a === "maquila" && req.method === "POST") {
+      if (!(await rateLimit("maq:" + ip(req), 5, 3600))) return send(res, 429, { error: "Demasiadas solicitudes. Intenta más tarde." });
+      await solicitarMaquila(await body(req));
+      return send(res, 200, { ok: true });
     }
     if (a === "logout") return send(res, 200, { ok: true }, { "Set-Cookie": clearCookie() });
 

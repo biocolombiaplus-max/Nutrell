@@ -319,6 +319,35 @@ function startBfCountdown() {
   tick(); setInterval(tick, 1000);
 }
 
+/* ---------- Carrusel de la portada ---------- */
+function initHeroCarousel() {
+  const root = $("[data-hc]"); if (!root) return;
+  const slides = $$(".hc-slide", root), dots = $$(".hc-dots button", root);
+  if (slides.length < 2) return;
+  const DUR = 5500, reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let i = 0, timer = null;
+  root.style.setProperty("--hc-dur", DUR + "ms");
+  const go = (n) => {
+    i = (n + slides.length) % slides.length;
+    slides.forEach((s, k) => { const on = k === i; s.classList.toggle("on", on); s.setAttribute("aria-hidden", on ? "false" : "true"); s.tabIndex = on ? 0 : -1; });
+    dots.forEach((d, k) => { d.classList.remove("on"); if (k === i) { void d.offsetWidth; d.classList.add("on"); } });
+  };
+  const stop = () => { clearInterval(timer); timer = null; };
+  const play = () => { stop(); if (!reduce) timer = setInterval(() => go(i + 1), DUR); root.classList.remove("paused"); };
+  $(".hc-nav.prev", root).onclick = (e) => { e.preventDefault(); go(i - 1); play(); };
+  $(".hc-nav.next", root).onclick = (e) => { e.preventDefault(); go(i + 1); play(); };
+  dots.forEach((d, k) => (d.onclick = () => { go(k); play(); }));
+  root.addEventListener("mouseenter", () => { stop(); root.classList.add("paused"); });
+  root.addEventListener("mouseleave", play);
+  document.addEventListener("visibilitychange", () => (document.hidden ? stop() : play()));
+  let x0 = null, moved = false;
+  root.addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; moved = false; }, { passive: true });
+  root.addEventListener("touchmove", (e) => { if (x0 !== null && Math.abs(e.touches[0].clientX - x0) > 10) moved = true; }, { passive: true });
+  root.addEventListener("touchend", (e) => { if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 40) { go(dx < 0 ? i + 1 : i - 1); play(); } x0 = null; });
+  root.addEventListener("click", (e) => { if (moved && e.target.closest(".hc-slide")) { e.preventDefault(); moved = false; } });
+  go(0); play();
+}
+
 /* ---------- Toast ---------- */
 let toastTimer;
 function toast(msg) {
@@ -522,6 +551,7 @@ document.addEventListener("DOMContentLoaded", () => {
   safe(initBuybox);
   safe(initPayStatus);
   safe(startBfCountdown);
+  safe(initHeroCarousel);
   // Si el cliente vuelve con "Atrás" desde Wompi, el botón no debe quedar cargando
   addEventListener("pageshow", (e) => { if (!e.persisted) return; const b = $("[data-place-order]"); if (b) { b.disabled = false; b.classList.remove("loading"); } safe(updatePayButton); });
 

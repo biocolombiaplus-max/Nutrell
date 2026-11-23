@@ -105,7 +105,7 @@ function renderAuth() {
 async function boot() {
   $("#root").innerHTML = `<div class="content" style="display:grid;place-items:center;min-height:80vh;color:var(--muted)">Cargando tu tienda…</div>`;
   const [cat, orders, visits, status, may] = await Promise.all([api("catalog"), api("orders").catch(() => []), api("visits", { days: 365 }, "GET").catch(() => ({})), fetch("/api/admin?a=status").then((r) => r.json()), api("may-list").catch(() => [])]);
-  S.may = may;
+  S.may = may; S.maq = await api("maq-list").catch(() => []);
   S.cat = cat; S.saved = JSON.stringify(cat); S.orders = orders; S.ordersAt = Date.now(); S.visits = visits; S.status = status;
   shell(); route();
 }
@@ -169,7 +169,7 @@ function shell() {
   updateNewCount();
 }
 function closeSide() { $(".side")?.classList.remove("open"); $(".scrim")?.classList.remove("show"); }
-function updateMayCount() { const n = (S.may || []).filter((m) => m.estado === "pendiente").length; $$("[data-may-count]").forEach((el) => { el.hidden = !n; el.textContent = n; }); }
+function updateMayCount() { const n = (S.may || []).filter((m) => m.estado === "pendiente").length + (S.maq || []).filter((q) => q.estado === "nuevo").length; $$("[data-may-count]").forEach((el) => { el.hidden = !n; el.textContent = n; }); }
 function updateNewCount() { updateMayCount(); const n = S.orders.filter((o) => o.estado === "nuevo").length; $$("[data-new-count], [data-bcount]").forEach((el) => { el.hidden = !n; el.textContent = n; }); }
 
 function markDirty() {
@@ -237,7 +237,7 @@ function route() {
   const banner = !S.status.db ? `<div class="banner bad">${ic("warn")}<div>${dbSteps()}<div style="margin-top:12px"><button class="btn btn-dark btn-sm" data-check-db>Verificar conexión</button></div></div></div>`
     : S.status.defaultPassword ? `<div class="banner">${ic("lock")}<div><b>Estás usando la clave inicial 123456.</b> Cualquiera que la adivine puede entrar a tu panel. <a href="#/ajustes" style="text-decoration:underline">Cámbiala ahora en Configuración → Seguridad</a>.</div></div>` : "";
   if (["inicio", "pedidos", "clientes"].includes(sec) && S.status.db && Date.now() - (S.ordersAt || 0) > 4000) { S.ordersAt = Date.now(); reloadOrders().then(() => { updateNewCount(); if ((location.hash.split("/")[1] || "inicio") === sec) { const y = scrollY; route(); scrollTo(0, y); } }); }
-  const views = { inicio: vDashboard, pedidos: id ? () => vOrder(id) : vOrders, productos: id ? () => vProduct(id) : vProducts, clientes: vCustomers, mayoristas: id === "config" ? vMayConfig : id ? () => vMay(id) : vMayList, descuentos: vDiscounts, tienda: vContent, colecciones: vCollections, ajustes: vSettings };
+  const views = { inicio: vDashboard, pedidos: id ? () => vOrder(id) : vOrders, productos: id ? () => vProduct(id) : vProducts, clientes: vCustomers, mayoristas: id === "config" ? vMayConfig : id === "maquila" ? vMaquila : id ? () => vMay(id) : vMayList, descuentos: vDiscounts, tienda: vContent, colecciones: vCollections, ajustes: vSettings };
   v.innerHTML = banner + (views[sec] || vDashboard)();
   window.scrollTo(0, 0);
   after.forEach((f) => f(v)); after = [];
@@ -770,11 +770,27 @@ function vContent() {
     wireRepeaters(v, (k) => getPath(S.cat, k), () => { const y = scrollY; route(); scrollTo(0, y); });
     const serp = () => { $(".serp .t", v).textContent = c.seo.titulo; $(".serp .d", v).textContent = c.seo.descripcion; };
     serp(); $$("[data-b^='contenido.seo']", v).forEach((i) => i.addEventListener("input", serp));
+    // Imágenes del carrusel
+    const hf = document.createElement("input"); hf.type = "file"; hf.accept = "image/*"; hf.hidden = true; v.appendChild(hf);
+    let slideIdx = null;
+    $$("[data-slide-up]", v).forEach((b) => b.onclick = () => { slideIdx = Number(b.dataset.slideUp); hf.value = ""; hf.click(); });
+    hf.onchange = async () => {
+      const file = hf.files[0]; if (!file || slideIdx === null) return;
+      const box = $(`[data-slide-up="${slideIdx}"]`, v); box.classList.add("busy");
+      try { const up = await api("upload", { dataUrl: await resize(file, 1400) }); c.hero.slides[slideIdx].imagen = up.url; markDirty(); const y = scrollY; route(); scrollTo(0, y); toast("Imagen subida. Guarda para publicarla."); }
+      catch (e) { toast(e.message, true); box.classList.remove("busy"); }
+    };
   });
   return `<div class="ph"><div><h1>Tienda online</h1><div class="sub">Edita los textos e imágenes de la página de inicio</div></div><div class="actions"><a class="btn btn-line" href="/" target="_blank" rel="noopener">${ic("ext")}Ver tienda</a></div></div>
   <div class="grid2"><div>
     <div class="card"><h2>Barra de anuncios</h2><p class="hint">Hasta 3 mensajes que rotan arriba de la tienda. Usa **texto** para resaltar en dorado.</p>
       ${[0, 1, 2].map((i) => fld(`Mensaje ${i + 1}`, `contenido.anuncios.${i}`)).join("")}</div>
+    <div class="card"><h2>Carrusel de la portada <small>${c.hero.slides.length} imágenes</small></h2>
+      <p class="hint">Rotan solas cada 5,5 s con transición suave. Usa imágenes verticales o cuadradas (ideal 1080 × 1350). Si lo dejas vacío, se muestra la composición de productos.</p>
+      ${repeater("contenido.hero.slides", c.hero.slides, (i) => `<div class="slide-ed"><button type="button" class="slot slide-thumb" data-slide-up="${i}" aria-label="Cambiar imagen">${c.hero.slides[i].imagen ? `<img src="${esc(c.hero.slides[i].imagen)}" alt="">` : `<div class="ph-in">${ic("img")}Subir imagen</div>`}<span class="lbl">Cambiar</span></button>
+        <div>${fld("Enlace al tocar", `contenido.hero.slides.${i}.enlace`, { ph: "/macamass, /#black-friday, /#coleccion" })}${fld("Descripción (SEO)", `contenido.hero.slides.${i}.alt`)}</div></div>`,
+        { title: (i) => `Imagen ${i + 1}`, addLabel: "Agregar imagen al carrusel", blank: { imagen: "", enlace: "/#coleccion", alt: "" } })}
+    </div>
     <div class="card"><h2>Portada</h2>
       ${fld("Texto pequeño superior", "contenido.hero.etiqueta")}
       <div class="row2">${fld("Título", "contenido.hero.titulo")}${fld("Título (parte dorada)", "contenido.hero.destacado")}</div>
@@ -909,7 +925,25 @@ const mayBadge = (k) => `<span class="badge b-m-${esc(k)}">${esc(lbl(MAY_EST, k)
 const mayOrders = (id) => S.orders.filter((o) => o.mayorista?.id === id);
 const mayTotal = (id) => mayOrders(id).filter(valid).reduce((s, o) => s + o.total, 0);
 const nivelName = (id) => (S.cat.mayoristas.niveles.find((n) => n.id === id) || {}).nombre || "—";
-async function reloadMay() { S.may = await api("may-list").catch(() => S.may || []); updateMayCount(); }
+async function reloadMay() { S.may = await api("may-list").catch(() => S.may || []); S.maq = await api("maq-list").catch(() => S.maq || []); updateMayCount(); }
+const MAQ_EST = [["nuevo", "Nuevo"], ["contactado", "Contactado"], ["cotizado", "Cotizado"], ["ganado", "Ganado"], ["perdido", "Perdido"]];
+function vMaquila() {
+  const list = S.maq || [];
+  later((v) => {
+    $$("[data-maq-st]", v).forEach((sel) => sel.onchange = async () => { try { const q = await api("maq-update", { id: sel.dataset.maqSt, estado: sel.value }); Object.assign(list.find((x) => x.id === q.id), q); updateMayCount(); toast("Estado actualizado"); } catch (e) { toast(e.message, true); } });
+    $$("[data-maq-note]", v).forEach((f) => f.onsubmit = async (e) => { e.preventDefault(); try { await api("maq-update", { id: f.dataset.maqNote, notas: f.notas.value }); toast("Nota guardada"); } catch (x) { toast(x.message, true); } });
+    $$("[data-maq-del]", v).forEach((b) => b.onclick = async () => { if (!(await confirmBox("¿Eliminar esta solicitud?", "No se puede deshacer.", "Eliminar", true))) return; await api("maq-delete", { id: b.dataset.maqDel }); S.maq = list.filter((x) => x.id !== b.dataset.maqDel); route(); });
+    $("[data-maq-exp]", v).onclick = () => download(`maquila-nutrell-${dayKey(Date.now())}.csv`, [["Fecha", "Estado", "Empresa", "Contacto", "Celular", "Correo", "Ciudad", "Producto", "Formato", "Cantidad", "Marca", "Proyecto", "Notas"], ...list.map((q) => [fDate(q.fecha), q.estado, q.empresa, q.contacto, q.telefono, q.email, q.ciudad, q.producto, q.formato, q.cantidad, q.marca, q.mensaje, q.notas])]);
+  });
+  return `<div class="ph"><a class="back" href="#/mayoristas" aria-label="Volver">${ic("back")}</a><div><h1>Solicitudes de maquila</h1><div class="sub">Empresas que quieren fabricar su propia marca</div></div><div class="actions"><a class="btn btn-line" href="/mayoristas#maquila" target="_blank" rel="noopener">${ic("ext")}Ver sección</a><button class="btn btn-line" data-maq-exp>${ic("dl")}Exportar</button></div></div>
+  ${list.length ? list.map((q) => `<div class="card maq-item"><div class="mi-h"><div><h2 style="margin:0">${esc(q.empresa)}</h2><span class="muted">${esc(q.contacto)} · ${fDate(q.fecha)}</span></div>
+      <select class="inp" data-maq-st="${q.id}" style="max-width:170px">${MAQ_EST.map(([k, l]) => `<option value="${k}"${q.estado === k ? " selected" : ""}>${l}</option>`).join("")}</select></div>
+    <div class="kvg" style="margin-top:14px"><div><small>Producto</small><b>${esc(q.producto)}</b></div><div><small>Formato</small><b>${esc(q.formato || "—")}</b></div><div><small>Cantidad</small><b>${esc(q.cantidad || "—")}</b></div><div><small>Marca</small><b>${esc(q.marca || "—")}</b></div>
+      <div><small>Celular</small><b><a href="https://wa.me/${waNum(q.telefono)}?text=${encodeURIComponent(`Hola ${q.contacto.split(" ")[0]}, te escribimos de Nutrell sobre tu proyecto de maquila (${q.producto}).`)}" target="_blank" rel="noopener" style="color:var(--blue)">${esc(q.telefono)}</a></b></div><div><small>Correo · Ciudad</small><b>${esc(q.email || "—")} · ${esc(q.ciudad || "—")}</b></div></div>
+    ${q.mensaje ? `<p class="muted" style="margin:14px 0 0;border-top:1px solid var(--line);padding-top:12px">“${esc(q.mensaje)}”</p>` : ""}
+    <form data-maq-note="${q.id}" style="display:flex;gap:8px;margin-top:14px"><input class="inp" name="notas" value="${esc(q.notas || "")}" placeholder="Nota interna (precio cotizado, seguimiento…)"><button class="btn btn-line btn-sm" style="height:40px">Guardar</button><button type="button" class="icon-b" data-maq-del="${q.id}" aria-label="Eliminar">${ic("trash")}</button></form>
+  </div>`).join("") : `<div class="card">${emptyS("brief", "Aún no hay solicitudes de maquila. Llegan desde la sección Maquila de /mayoristas.")}</div>`}`;
+}
 
 function vMayList() {
   S.mtab ??= (S.may || []).some((m) => m.estado === "pendiente") ? "pendiente" : "aprobado";
@@ -926,7 +960,7 @@ function vMayList() {
     $("[data-mref]", v).onclick = async () => { await reloadMay(); await reloadOrders(); route(); toast("Mayoristas actualizados"); };
   });
   return `<div class="ph"><div><h1>Mayoristas</h1><div class="sub">Solicitudes, clientes mayoristas y sus condiciones comerciales</div></div>
-    <div class="actions"><a class="btn btn-line" href="/mayoristas" target="_blank" rel="noopener">${ic("ext")}Ver página</a><button class="btn btn-line" data-mref>Actualizar</button><button class="btn btn-line" data-mexp>${ic("dl")}Exportar</button><a class="btn btn-dark" href="#/mayoristas/config">${ic("cog")}Configurar programa</a></div></div>
+    <div class="actions"><a class="btn btn-line" href="/mayoristas" target="_blank" rel="noopener">${ic("ext")}Ver página</a><button class="btn btn-line" data-mref>Actualizar</button><button class="btn btn-line" data-mexp>${ic("dl")}Exportar</button><a class="btn btn-line" href="#/mayoristas/maquila">${ic("box")}Maquila${(S.maq || []).filter((q) => q.estado === "nuevo").length ? ` · ${(S.maq || []).filter((q) => q.estado === "nuevo").length} nuevas` : ""}</a><a class="btn btn-dark" href="#/mayoristas/config">${ic("cog")}Configurar programa</a></div></div>
   <div class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))">
     <div class="kpi hero"><div class="l">Ventas mayoristas · 30 días</div><div class="v">${cop(ventas30)}</div></div>
     <div class="kpi"><div class="l">Mayoristas activos</div><div class="v">${activos}</div></div>

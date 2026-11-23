@@ -1297,3 +1297,66 @@ body:has(.pt-bar.show) .wa-float { bottom: 100px; }
 @media (max-width: 600px) { .contact-band { padding: 22px; border-radius: 22px; } }
 .mm-contact { margin-top: auto; padding-top: 22px; display: grid; gap: 6px; border-top: 1px solid rgba(255,255,255,.1); }
 .mobile-menu .mm-contact a { font-family: var(--ff-body); font-size: 1rem; border: 0; padding: 2px 0; color: var(--gold-2); }
+
+/* =========================================================
+   v9 · CARRUSEL DE LA PORTADA
+   ========================================================= */
+.hc { position: relative; width: min(100%, 560px); margin: 0 auto; }
+.hc::before { content: ""; position: absolute; inset: 6% -6% -4%; border-radius: 40px; background: radial-gradient(closest-side, rgba(201,162,75,.45), transparent 75%); filter: blur(10px); z-index: -1; }
+.hc-frame { position: relative; aspect-ratio: 4 / 5; border-radius: 30px; overflow: hidden; background: #0b0b0c;
+  box-shadow: 0 50px 100px -40px rgba(0,0,0,.85), 0 0 0 1px rgba(233,207,138,.28), inset 0 0 0 1px rgba(255,255,255,.06); }
+.hc-slide { position: absolute; inset: 0; display: block; opacity: 0; visibility: hidden; transition: opacity 1s var(--ease), visibility 0s linear 1s; }
+.hc-slide.on { opacity: 1; visibility: visible; transition: opacity 1s var(--ease); z-index: 1; }
+.hc-bg { position: absolute; inset: -8%; width: 116%; height: 116%; max-width: none; object-fit: cover; filter: blur(28px) saturate(1.2) brightness(.55); }
+.hc-img { position: relative; width: 100%; height: 100%; object-fit: contain; transform: scale(1.06); transition: transform var(--hc-dur, 5500ms) linear; }
+.hc-slide.on .hc-img { transform: scale(1); }
+.hc.paused .hc-slide.on .hc-img { transition-duration: .6s; }
+.hc-nav { position: absolute; top: 50%; z-index: 3; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; transform: translateY(-50%);
+  background: rgba(13,13,14,.55); color: #fff; border: 1px solid rgba(255,255,255,.18); backdrop-filter: blur(10px); opacity: 0; transition: opacity .3s, background .3s; }
+.hc-nav svg { width: 20px; height: 20px; }
+.hc-nav.prev { left: 14px; } .hc-nav.next { right: 14px; }
+.hc:hover .hc-nav, .hc-nav:focus-visible { opacity: 1; }
+.hc-nav:hover { background: var(--gold); color: var(--ink); }
+.hc-dots { display: flex; justify-content: center; gap: 8px; margin-top: 18px; }
+.hc-dots button { width: 34px; height: 4px; border-radius: 99px; background: rgba(255,255,255,.22); overflow: hidden; padding: 0; transition: width .4s var(--ease); }
+.hc-dots button.on { width: 58px; }
+.hc-dots i { display: block; height: 100%; width: 0; background: var(--gold-grad); border-radius: inherit; }
+.hc-dots button.on i { animation: hcFill var(--hc-dur, 5500ms) linear forwards; }
+.hc.paused .hc-dots button.on i { animation-play-state: paused; }
+@keyframes hcFill { to { width: 100%; } }
+@media (hover: none) { .hc-nav { opacity: 1; width: 38px; height: 38px; } }
+@media (max-width: 960px) { .hc { width: min(100%, 460px); } }
+@media (max-width: 600px) { .hc-frame { border-radius: 24px; } .hc-nav.prev { left: 8px; } .hc-nav.next { right: 8px; } }
+@media (prefers-reduced-motion: reduce) { .hc-img { transform: none !important; } }
+
+/* =========================================================
+   v9 · MAQUILA
+   ========================================================= */
+.maq { position: relative; background: #070707; color: #fff; padding: clamp(70px, 9vw, 120px) 0; overflow: hidden; isolation: isolate; }
+.maq-glow { position: absolute; inset: 0; z-index: -1; background: radial-gradient(45% 50% at 85% 10%, rgba(201,162,75,.25), transparent 60%), radial-gradient(40% 40% at 0% 100%, rgba(201,162,75,.12), transparent 60%); }
+.maq::after { content: ""; position: absolute; inset: 0; z-index: -1; opacity: .4; background-image: radial-gradient(rgba(233,207,138,.16) 1px, transparent 1px); background-size: 26px 26px; mask-image: linear-gradient(180deg, #000, transparent 70%); }
+.maq .eyebrow { color: var(--gold-2); }
+.maq-head { display: grid; gap: 20px; align-items: end; margin-bottom: clamp(36px, 5vw, 56px); }
+@media (min-width: 960px) { .maq-head { grid-template-columns: 1.1fr .9fr; gap: 60px; } }
+.maq-head h2 { margin-top: 14px; font-size: clamp(2.2rem, 4.6vw, 3.8rem); }
+.maq-head .lead { color: rgba(255,255,255,.65); margin: 0; }
+.maq-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
+.maq-card { position: relative; padding: 30px 26px; border-radius: 24px; background: linear-gradient(170deg, rgba(255,255,255,.06), rgba(255,255,255,.015)); border: 1px solid rgba(255,255,255,.09); transition: border-color .4s, transform .4s var(--ease); }
+.maq-card:hover { border-color: rgba(233,207,138,.45); transform: translateY(-6px); }
+.maq-n { font-family: var(--ff-display); font-style: italic; font-size: 2.6rem; line-height: 1; background: var(--gold-grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.maq-card h3 { margin: 18px 0 8px; font-size: 1.35rem; }
+.maq-card p { margin: 0; color: rgba(255,255,255,.6); font-size: .93rem; }
+.maq-band { display: grid; gap: 24px; margin-top: 16px; padding: 26px; border-radius: 24px; border: 1px solid rgba(233,207,138,.22); background: rgba(201,162,75,.05); }
+@media (min-width: 1000px) { .maq-band { grid-template-columns: 1fr 1fr; align-items: center; } }
+.maq-formats small, .maq-band small { font-size: .68rem; letter-spacing: .16em; text-transform: uppercase; color: var(--gold-2); font-weight: 800; }
+.maq-formats div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.maq-formats span { padding: 8px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.15); font-size: .84rem; font-weight: 700; }
+.maq-steps { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.maq-steps div { display: grid; justify-items: center; gap: 6px; font-size: .78rem; font-weight: 700; color: rgba(255,255,255,.75); text-align: center; }
+.maq-steps b { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--gold-grad); color: #000; font-weight: 900; }
+.maq-steps i { flex: 1; height: 1px; background: linear-gradient(90deg, rgba(233,207,138,.6), rgba(233,207,138,.15)); margin-bottom: 22px; }
+.maq-form-wrap { display: grid; gap: 30px; margin-top: clamp(44px, 6vw, 70px); align-items: start; }
+@media (min-width: 960px) { .maq-form-wrap { grid-template-columns: .8fr 1.2fr; gap: 60px; } }
+.maq-form-wrap h3 { font-size: clamp(1.8rem, 3vw, 2.4rem); margin-bottom: 12px; }
+.maq-form-wrap > div > p { color: rgba(255,255,255,.65); margin: 0 0 22px; }
+.maq-form { color: var(--ink); }
