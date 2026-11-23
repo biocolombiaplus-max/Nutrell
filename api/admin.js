@@ -80,7 +80,7 @@ export default async function handler(req, res) {
         const slugs = data.productos.map((p) => p.slug);
         if (slugs.some((s) => !/^[a-z0-9-]{2,60}$/.test(s || ""))) return send(res, 400, { error: "Cada producto necesita una URL válida (solo minúsculas, números y guiones)." });
         if (new Set(slugs).size !== slugs.length) return send(res, 400, { error: "Hay dos productos con la misma URL." });
-        if (["admin", "api", "assets", "img", "sitemap", "robots", "producto", "pedido", "webhooks", "mayoristas"].some((r) => slugs.includes(r))) return send(res, 400, { error: "Esa URL está reservada. Usa otra." });
+        if (["admin", "api", "assets", "img", "sitemap", "robots", "producto", "pedido", "webhooks", "mayoristas", "maquila"].some((r) => slugs.includes(r))) return send(res, 400, { error: "Esa URL está reservada. Usa otra." });
         return send(res, 200, await saveCatalog(data));
       }
       case "reset": {

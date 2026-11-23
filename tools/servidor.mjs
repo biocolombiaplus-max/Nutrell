@@ -17,6 +17,7 @@ function rewrite(p) {
   if (p === "/robots.txt") return "/api/page?r=robots";
   if (p === "/pedido") return "/api/page?r=pedido";
   if (p === "/mayoristas") return "/api/page?r=mayoristas";
+  if (p === "/maquila") return "/api/page?r=maquila";
   if (p === "/mayoristas/portal") return "/api/page?r=portal";
   if (p === "/webhooks/wompi") return "/api/store?a=wompi";
   if (p === "/admin" || p === "/admin/") return "/admin/index.html";

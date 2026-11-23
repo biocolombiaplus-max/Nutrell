@@ -2,7 +2,7 @@
 import { getCatalog, bySlug } from "../lib/catalog.js";
 import { renderIndex, renderProduct, render404, renderSitemap, renderRobots, renderPayStatus } from "../lib/render.js";
 import { wompiConfig } from "../lib/wompi.js";
-import { renderWholesale, renderPortal } from "../lib/render-mayoristas.js";
+import { renderWholesale, renderPortal, renderMaquila } from "../lib/render-mayoristas.js";
 import { query, send } from "../lib/http.js";
 
 const CACHE = "public, s-maxage=10, stale-while-revalidate=60";
@@ -20,6 +20,7 @@ export default async function handler(req, res) {
     if (r === "index") return send(res, 200, renderIndex(c), html);
     if (r === "pedido") return send(res, 200, renderPayStatus(c), { ...html, "Cache-Control": "no-store" });
     if (r === "mayoristas") return send(res, 200, renderWholesale(c), html);
+    if (r === "maquila") return send(res, 200, renderMaquila(c), html);
     if (r === "portal") return send(res, 200, renderPortal(c), { ...html, "Cache-Control": "no-store" });
     const slug = String(q.slug || "").toLowerCase();
     const p = bySlug(c, slug);

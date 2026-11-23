@@ -1360,3 +1360,14 @@ body:has(.pt-bar.show) .wa-float { bottom: 100px; }
 .maq-form-wrap h3 { font-size: clamp(1.8rem, 3vw, 2.4rem); margin-bottom: 12px; }
 .maq-form-wrap > div > p { color: rgba(255,255,255,.65); margin: 0 0 22px; }
 .maq-form { color: var(--ink); }
+
+/* Maquila: página propia y aviso en mayoristas */
+.maq-hero h1 { font-size: clamp(2.4rem, 5.4vw, 4.6rem); }
+.maq-teaser { display: grid; gap: 22px; align-items: center; padding: clamp(26px, 4vw, 44px); border-radius: 28px; color: #fff;
+  background: radial-gradient(60% 120% at 100% 0%, rgba(201,162,75,.32), transparent 60%), #0b0b0c; border: 1px solid rgba(233,207,138,.3); transition: transform .4s var(--ease), box-shadow .4s; }
+.maq-teaser:hover { transform: translateY(-4px); box-shadow: 0 40px 70px -40px rgba(201,162,75,.6); }
+@media (min-width: 900px) { .maq-teaser { grid-template-columns: 1fr auto; gap: 40px; } }
+.maq-teaser .eyebrow { color: var(--gold-2); }
+.maq-teaser h2 { margin: 12px 0 8px; font-size: clamp(1.8rem, 3.4vw, 2.6rem); }
+.maq-teaser p { margin: 0; color: rgba(255,255,255,.65); }
+@media (min-width: 960px) and (max-width: 1180px) { .nav { gap: 22px; } }
