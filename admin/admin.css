@@ -367,3 +367,5 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 720px; }
 .slide-thumb img { padding: 0 !important; object-fit: cover !important; }
 @media (max-width: 520px) { .slide-ed { grid-template-columns: 90px 1fr; } .slide-thumb { width: 90px; } }
 .maq-item .mi-h { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.maq-img-slot { aspect-ratio: 3 / 2; }
+.maq-img-slot img { object-fit: cover !important; padding: 0 !important; }

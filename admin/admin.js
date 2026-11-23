@@ -237,7 +237,7 @@ function route() {
   const banner = !S.status.db ? `<div class="banner bad">${ic("warn")}<div>${dbSteps()}<div style="margin-top:12px"><button class="btn btn-dark btn-sm" data-check-db>Verificar conexión</button></div></div></div>`
     : S.status.defaultPassword ? `<div class="banner">${ic("lock")}<div><b>Estás usando la clave inicial 123456.</b> Cualquiera que la adivine puede entrar a tu panel. <a href="#/ajustes" style="text-decoration:underline">Cámbiala ahora en Configuración → Seguridad</a>.</div></div>` : "";
   if (["inicio", "pedidos", "clientes"].includes(sec) && S.status.db && Date.now() - (S.ordersAt || 0) > 4000) { S.ordersAt = Date.now(); reloadOrders().then(() => { updateNewCount(); if ((location.hash.split("/")[1] || "inicio") === sec) { const y = scrollY; route(); scrollTo(0, y); } }); }
-  const views = { inicio: vDashboard, pedidos: id ? () => vOrder(id) : vOrders, productos: id ? () => vProduct(id) : vProducts, clientes: vCustomers, mayoristas: id === "config" ? vMayConfig : id === "maquila" ? vMaquila : id ? () => vMay(id) : vMayList, descuentos: vDiscounts, tienda: vContent, colecciones: vCollections, ajustes: vSettings };
+  const views = { inicio: vDashboard, pedidos: id ? () => vOrder(id) : vOrders, productos: id ? () => vProduct(id) : vProducts, clientes: vCustomers, mayoristas: id === "config" ? vMayConfig : id === "maquila" ? vMaquila : id === "maquila-pagina" ? vMaqPage : id ? () => vMay(id) : vMayList, descuentos: vDiscounts, tienda: vContent, colecciones: vCollections, ajustes: vSettings };
   v.innerHTML = banner + (views[sec] || vDashboard)();
   window.scrollTo(0, 0);
   after.forEach((f) => f(v)); after = [];
@@ -935,7 +935,7 @@ function vMaquila() {
     $$("[data-maq-del]", v).forEach((b) => b.onclick = async () => { if (!(await confirmBox("¿Eliminar esta solicitud?", "No se puede deshacer.", "Eliminar", true))) return; await api("maq-delete", { id: b.dataset.maqDel }); S.maq = list.filter((x) => x.id !== b.dataset.maqDel); route(); });
     $("[data-maq-exp]", v).onclick = () => download(`maquila-nutrell-${dayKey(Date.now())}.csv`, [["Fecha", "Estado", "Empresa", "Contacto", "Celular", "Correo", "Ciudad", "Producto", "Formato", "Cantidad", "Marca", "Proyecto", "Notas"], ...list.map((q) => [fDate(q.fecha), q.estado, q.empresa, q.contacto, q.telefono, q.email, q.ciudad, q.producto, q.formato, q.cantidad, q.marca, q.mensaje, q.notas])]);
   });
-  return `<div class="ph"><a class="back" href="#/mayoristas" aria-label="Volver">${ic("back")}</a><div><h1>Solicitudes de maquila</h1><div class="sub">Empresas que quieren fabricar su propia marca</div></div><div class="actions"><a class="btn btn-line" href="/maquila" target="_blank" rel="noopener">${ic("ext")}Ver sección</a><button class="btn btn-line" data-maq-exp>${ic("dl")}Exportar</button></div></div>
+  return `<div class="ph"><a class="back" href="#/mayoristas" aria-label="Volver">${ic("back")}</a><div><h1>Solicitudes de maquila</h1><div class="sub">Empresas que quieren fabricar su propia marca</div></div><div class="actions"><a class="btn btn-line" href="/maquila" target="_blank" rel="noopener">${ic("ext")}Ver página</a><a class="btn btn-dark" href="#/mayoristas/maquila-pagina">${ic("cog")}Editar página de maquila</a><button class="btn btn-line" data-maq-exp>${ic("dl")}Exportar</button></div></div>
   ${list.length ? list.map((q) => `<div class="card maq-item"><div class="mi-h"><div><h2 style="margin:0">${esc(q.empresa)}</h2><span class="muted">${esc(q.contacto)} · ${fDate(q.fecha)}</span></div>
       <select class="inp" data-maq-st="${q.id}" style="max-width:170px">${MAQ_EST.map(([k, l]) => `<option value="${k}"${q.estado === k ? " selected" : ""}>${l}</option>`).join("")}</select></div>
     <div class="kvg" style="margin-top:14px"><div><small>Producto</small><b>${esc(q.producto)}</b></div><div><small>Formato</small><b>${esc(q.formato || "—")}</b></div><div><small>Cantidad</small><b>${esc(q.cantidad || "—")}</b></div><div><small>Marca</small><b>${esc(q.marca || "—")}</b></div>
@@ -1024,7 +1024,7 @@ function vMay(id) {
 
 function vMayConfig() {
   const cfg = S.cat.mayoristas;
-  later((v) => { bindInputs(v, () => S.cat); wireRepeaters(v, (k) => getPath(S.cat, k), () => { const y = scrollY; route(); scrollTo(0, y); }); chipsInput($("[data-chips=tipos]", v), cfg, "tiposNegocio"); });
+  later((v) => { bindInputs(v, () => S.cat); wireRepeaters(v, (k) => getPath(S.cat, k), () => { const y = scrollY; route(); scrollTo(0, y); }); chipsInput($("[data-chips=tipos]", v), cfg, "tiposNegocio"); chipsInput($("[data-chips=canales]", v), cfg, "canales"); });
   return `<div class="ph"><a class="back" href="#/mayoristas" aria-label="Volver">${ic("back")}</a><div><h1>Programa de mayoristas</h1><div class="sub">Niveles, precios, pedido mínimo y métodos de pago del portal</div></div><div class="actions"><a class="btn btn-line" href="/mayoristas" target="_blank" rel="noopener">${ic("ext")}Ver página</a></div></div>
   <div class="grid2"><div>
     <div class="card"><h2>Niveles y descuentos</h2><p class="hint">El descuento se aplica sobre el precio de venta (o sobre el precio base mayorista si lo definiste en el producto).</p>
@@ -1032,11 +1032,72 @@ function vMayConfig() {
         { title: (i, n) => n.nombre || "Nivel", addLabel: "Agregar nivel", blank: { id: "nivel" + (cfg.niveles.length + 1), nombre: "Nuevo nivel", descuento: 20, minimo: 500000, descripcion: "" } })}
       <div style="margin-top:14px">${fld("Nivel asignado al aprobar", "mayoristas.nivelInicial", { opts: cfg.niveles.map((n) => [n.id, n.nombre]) })}</div>
     </div>
-    <div class="card"><h2>Página pública /mayoristas</h2>${fld("Título", "mayoristas.titulo")}${fld("Texto", "mayoristas.texto", { rows: 3 })}
-      <label class="f"><span>Tipos de negocio del formulario</span><div class="chips-in" data-chips="tipos"></div></label></div>
+    <div class="card"><h2>Página pública /mayoristas · Portada</h2>
+      <div class="row2">${fld("Título", "mayoristas.titulo")}${fld("Título (parte dorada)", "mayoristas.destacado")}</div>${fld("Texto", "mayoristas.texto", { rows: 3 })}</div>
+    <div class="card"><h2>Beneficios</h2><p class="hint">Escribe {descuento} para mostrar el descuento máximo de tus niveles.</p>
+      ${repeater("mayoristas.beneficios", cfg.beneficios, (i) => `${fld("Título", `mayoristas.beneficios.${i}.titulo`)}${fld("Texto", `mayoristas.beneficios.${i}.texto`, { rows: 2 })}`, { title: (i, b) => b.titulo || `Beneficio ${i + 1}`, addLabel: "Agregar beneficio", blank: { titulo: "", texto: "" } })}</div>
+    <div class="card"><h2>Cómo funciona (pasos)</h2>
+      ${repeater("mayoristas.pasos", cfg.pasos, (i) => `${fld("Título", `mayoristas.pasos.${i}.titulo`)}${fld("Texto", `mayoristas.pasos.${i}.texto`)}`, { title: (i) => `Paso ${i + 1}`, addLabel: "Agregar paso", blank: { titulo: "", texto: "" } })}</div>
+    <div class="card"><h2>Formulario de solicitud</h2>
+      ${fld("Requisitos (uno por línea)", "mayoristas.requisitos", { rows: 3, t: "lines" })}
+      <label class="f"><span>Tipos de negocio</span><div class="chips-in" data-chips="tipos"></div></label>
+      <label class="f"><span>Canales de venta (“¿Dónde vendes?”)</span><div class="chips-in" data-chips="canales"></div></label></div>
+    <div class="card"><h2>Preguntas frecuentes</h2>
+      ${repeater("mayoristas.faq", cfg.faq, (i) => `${fld("Pregunta", `mayoristas.faq.${i}.pregunta`)}${fld("Respuesta", `mayoristas.faq.${i}.respuesta`, { rows: 2 })}`, { title: (i) => `Pregunta ${i + 1}`, addLabel: "Agregar pregunta", blank: { pregunta: "", respuesta: "" } })}</div>
   </div><div>
     <div class="card"><h2>Estado</h2>${sw("Programa de mayoristas activo", "mayoristas.activo")}</div>
     <div class="card"><h2>Métodos de pago del portal</h2><div style="display:grid;gap:12px">${sw("Pago en línea (Wompi)", "mayoristas.metodos.online")}${sw("Transferencia bancaria", "mayoristas.metodos.transferencia")}${sw("Crédito (solo a quien se lo habilites)", "mayoristas.metodos.credito")}</div>
       <div style="margin-top:14px">${fld("Instrucciones de transferencia", "mayoristas.datosTransferencia", { rows: 3, help: "Se muestran al mayorista cuando elige transferencia. Ej.: Bancolombia ahorros 000-000000-00 a nombre de…" })}</div></div>
+  </div></div>`;
+}
+
+
+/* ---------- Página de maquila (editable) ---------- */
+function vMaqPage() {
+  const m = S.cat.maquila;
+  const rer = () => { const y = scrollY; route(); scrollTo(0, y); };
+  later((v) => {
+    bindInputs(v, () => S.cat); counters(v);
+    wireRepeaters(v, (k) => getPath(S.cat, k), rer);
+    const hf = document.createElement("input"); hf.type = "file"; hf.accept = "image/*"; hf.hidden = true; v.appendChild(hf);
+    const slot = $("[data-maq-img]", v);
+    slot.onclick = (e) => { if (e.target.closest("[data-maq-clear]")) { m.imagen = ""; markDirty(); rer(); return; } hf.value = ""; hf.click(); };
+    hf.onchange = async () => {
+      const file = hf.files[0]; if (!file) return; slot.classList.add("busy");
+      try { m.imagen = (await api("upload", { dataUrl: await resize(file, 1600) })).url; markDirty(); rer(); toast("Imagen subida. Guarda para publicarla."); }
+      catch (e) { toast(e.message, true); slot.classList.remove("busy"); }
+    };
+    const serp = () => { $(".serp .t", v).textContent = m.seoTitulo; $(".serp .d", v).textContent = m.seoDescripcion; };
+    serp(); $$("[data-b^='maquila.seo']", v).forEach((i) => i.addEventListener("input", serp));
+  });
+  return `<div class="ph"><a class="back" href="#/mayoristas/maquila" aria-label="Volver">${ic("back")}</a><div><h1>Página de maquila</h1><div class="sub">Todo el contenido de www.nutrell.co/maquila</div></div>
+    <div class="actions"><a class="btn btn-line" href="/maquila" target="_blank" rel="noopener">${ic("ext")}Ver página</a></div></div>
+  <div class="grid2"><div>
+    <div class="card"><h2>Portada</h2>
+      ${fld("Texto pequeño superior", "maquila.etiqueta")}
+      <div class="row2">${fld("Título", "maquila.titulo")}${fld("Título (parte dorada)", "maquila.destacado")}</div>
+      ${fld("Texto", "maquila.texto", { rows: 3 })}
+      <h3>Cifras</h3>${[0, 1, 2].map((i) => `<div class="row2">${fld(`Cifra ${i + 1}`, `maquila.cifras.${i}.valor`)}${fld("Texto", `maquila.cifras.${i}.texto`)}</div>`).join("")}
+    </div>
+    <div class="card"><h2>Por qué fabricar con nosotros</h2>
+      ${repeater("maquila.beneficios", m.beneficios, (i) => `${fld("Título", `maquila.beneficios.${i}.titulo`)}${fld("Texto", `maquila.beneficios.${i}.texto`, { rows: 2 })}`, { title: (i, b) => b.titulo || `Razón ${i + 1}`, addLabel: "Agregar razón", blank: { titulo: "", texto: "" } })}</div>
+    <div class="card"><h2>Servicios</h2>
+      <div class="row3">${fld("Título", "maquila.seccionTitulo")}${fld("Parte dorada", "maquila.seccionDestacado")}${fld("Cierre", "maquila.seccionCierre")}</div>
+      ${fld("Texto", "maquila.seccionTexto", { rows: 3 })}
+      ${repeater("maquila.servicios", m.servicios, (i) => `${fld("Servicio", `maquila.servicios.${i}.titulo`)}${fld("Descripción", `maquila.servicios.${i}.texto`, { rows: 2 })}`, { title: (i, b) => `${String(i + 1).padStart(2, "0")} · ${b.titulo || "Servicio"}`, addLabel: "Agregar servicio", blank: { titulo: "", texto: "" } })}</div>
+    <div class="card"><h2>Formatos y proceso</h2>
+      <div class="row2">${fld("Formatos (uno por línea)", "maquila.formatos", { rows: 6, t: "lines" })}${fld("Pasos del proceso (uno por línea)", "maquila.proceso", { rows: 6, t: "lines" })}</div></div>
+    <div class="card"><h2>Formulario de cotización</h2>
+      ${fld("Título", "maquila.formTitulo")}${fld("Texto", "maquila.formTexto", { rows: 2 })}
+      <div class="row3">${fld("Productos (uno por línea)", "maquila.opcionesProducto", { rows: 6, t: "lines" })}${fld("Formatos (uno por línea)", "maquila.opcionesFormato", { rows: 6, t: "lines" })}${fld("Cantidades (una por línea)", "maquila.opcionesCantidad", { rows: 6, t: "lines" })}</div></div>
+    <div class="card"><h2>Preguntas frecuentes</h2>
+      ${repeater("maquila.faq", m.faq, (i) => `${fld("Pregunta", `maquila.faq.${i}.pregunta`)}${fld("Respuesta", `maquila.faq.${i}.respuesta`, { rows: 2 })}`, { title: (i) => `Pregunta ${i + 1}`, addLabel: "Agregar pregunta", blank: { pregunta: "", respuesta: "" } })}</div>
+  </div><div>
+    <div class="card"><h2>Estado</h2>${sw("Mostrar maquila en la página de mayoristas", "maquila.activo")}</div>
+    <div class="card"><h2>Imagen principal</h2><p class="hint">Se ve en la portada de /maquila y en el aviso de /mayoristas. Ideal horizontal (1500 × 1000).</p>
+      <div class="slot photo maq-img-slot" data-maq-img role="button" tabindex="0">${m.imagen ? `<img src="${esc(m.imagen)}" alt=""><button type="button" class="x" data-maq-clear aria-label="Quitar">${ic("x")}</button>` : `<div class="ph-in">${ic("img")}Subir imagen</div>`}<span class="lbl">Cambiar</span></div>
+      <div class="row2" style="margin-top:14px">${fld("Tarjeta: título", "maquila.tarjetaTitulo")}${fld("Tarjeta: texto", "maquila.tarjetaTexto")}</div></div>
+    <div class="card"><h2>SEO · Vista previa en Google</h2><div class="serp"><div class="u">${esc(S.cat.sitio.url.replace(/^https?:\/\//, ""))} › maquila</div><div class="t"></div><div class="d"></div></div>
+      ${fld("Título para Google", "maquila.seoTitulo", { max: 65 })}${fld("Descripción para Google", "maquila.seoDescripcion", { rows: 3, max: 160 })}</div>
   </div></div>`;
 }

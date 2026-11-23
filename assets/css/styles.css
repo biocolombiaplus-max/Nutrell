@@ -1371,3 +1371,26 @@ body:has(.pt-bar.show) .wa-float { bottom: 100px; }
 .maq-teaser h2 { margin: 12px 0 8px; font-size: clamp(1.8rem, 3.4vw, 2.6rem); }
 .maq-teaser p { margin: 0; color: rgba(255,255,255,.65); }
 @media (min-width: 960px) and (max-width: 1180px) { .nav { gap: 22px; } }
+
+/* Maquila · foto principal */
+.maq-photo { position: relative; margin: 0; width: min(100%, 640px); justify-self: center; }
+.maq-photo::before { content: ""; position: absolute; inset: 8% -4% -6%; border-radius: 40px; background: radial-gradient(closest-side, rgba(201,162,75,.45), transparent 75%); filter: blur(14px); z-index: -1; }
+.mp-frame { border-radius: 28px; overflow: hidden; aspect-ratio: 3 / 2; background: #e9e9ea;
+  box-shadow: 0 50px 100px -40px rgba(0,0,0,.9), 0 0 0 1px rgba(233,207,138,.35), 0 0 0 8px rgba(255,255,255,.04); }
+.mp-frame img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.03); transition: transform 1.4s var(--ease); }
+.maq-photo:hover .mp-frame img { transform: scale(1.07); }
+.mp-card { position: absolute; left: -22px; bottom: -26px; display: grid; gap: 2px; padding: 16px 20px; border-radius: 18px; color: #fff;
+  background: rgba(13,13,14,.82); border: 1px solid rgba(233,207,138,.35); backdrop-filter: blur(14px); box-shadow: 0 24px 40px -20px rgba(0,0,0,.7); }
+.mp-card small { font-size: .64rem; letter-spacing: .16em; text-transform: uppercase; color: rgba(255,255,255,.55); font-weight: 700; }
+.mp-card b { font-family: var(--ff-display); font-size: 1.6rem; font-weight: 500; background: var(--gold-grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.mp-card span { font-size: .8rem; color: rgba(255,255,255,.72); }
+.mp-chip { position: absolute; top: -16px; right: 18px; display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 999px; background: var(--gold-grad); color: #000; font-weight: 800; font-size: .78rem; box-shadow: 0 14px 28px -12px rgba(201,162,75,.8); animation: floaty 6s ease-in-out infinite; }
+.mp-chip svg { width: 15px; height: 15px; }
+@media (max-width: 960px) { .maq-hero .hero-visual { order: -1; margin-bottom: 24px; } .maq-photo { width: 100%; } .mp-card { left: 12px; bottom: -22px; } }
+@media (max-width: 600px) { .mp-frame { border-radius: 20px; } .mp-card { padding: 11px 14px; } .mp-card b { font-size: 1.2rem; } .mp-chip { right: 10px; top: -14px; font-size: .7rem; padding: 7px 11px; } .maq-hero { padding-top: 34px; } }
+/* Aviso de maquila en mayoristas, con foto */
+.maq-teaser { overflow: hidden; }
+@media (min-width: 900px) { .maq-teaser:has(.mt-img) { grid-template-columns: 380px 1fr; } }
+.maq-teaser .mt-img { width: 100%; aspect-ratio: 3/2; object-fit: cover; border-radius: 18px; box-shadow: 0 0 0 1px rgba(233,207,138,.3); }
+.maq-teaser .btn { margin-top: 18px; }
+@media (max-width: 960px) { .maq-hero .hero-visual { margin: 8px 0 34px; } .maq-photo { width: 100%; } }
