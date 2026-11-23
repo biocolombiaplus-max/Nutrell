@@ -347,3 +347,16 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 720px; }
   .content { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
   .toast { bottom: calc(86px + env(safe-area-inset-bottom)); }
 }
+
+/* Mayoristas */
+.badge.b-may { background: #1a1712; color: var(--gold-2); height: 20px; font-size: .66rem; margin-left: 6px; vertical-align: middle; }
+.badge.b-may::before { display: none; }
+.b-m-pendiente { background: var(--warn-soft); color: var(--warn); }
+.b-m-aprobado { background: var(--ok-soft); color: var(--ok); }
+.b-m-rechazado { background: var(--bad-soft); color: var(--bad); }
+.b-m-inactivo { background: #eeeef0; color: #5d5d64; }
+.kvg { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; }
+.kvg small { display: block; color: var(--muted); font-size: .74rem; font-weight: 600; }
+.kvg b { font-weight: 700; word-break: break-word; }
+@media (max-width: 520px) { .kvg { grid-template-columns: 1fr; } }
+.card h2 svg, .card h3 svg { width: 18px; height: 18px; flex: none; }

@@ -13,6 +13,7 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
 const slugify = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
 
 const ICON = {
+  brief: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2M3 13h18"/>',
   home: '<path d="M3 11l9-7 9 7v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/>',
   orders: '<path d="M6 7h12l-1 13H7L6 7z"/><path d="M9 7a3 3 0 016 0"/>',
   box: '<path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8M12 13v8"/>',
@@ -28,6 +29,7 @@ const ICON = {
   back: '<path d="M15 6l-6 6 6 6"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  check: '<path d="M5 12l5 5L20 7"/>',
   up: '<path d="M6 15l6-6 6 6"/>', down: '<path d="M6 9l6 6 6-6"/>',
   img: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',
   wa: '<path d="M4 20l1.3-3.9A8 8 0 1112 20a8 8 0 01-3.9-1L4 20z"/>',
@@ -102,7 +104,8 @@ function renderAuth() {
 }
 async function boot() {
   $("#root").innerHTML = `<div class="content" style="display:grid;place-items:center;min-height:80vh;color:var(--muted)">Cargando tu tienda…</div>`;
-  const [cat, orders, visits, status] = await Promise.all([api("catalog"), api("orders").catch(() => []), api("visits", { days: 365 }, "GET").catch(() => ({})), fetch("/api/admin?a=status").then((r) => r.json())]);
+  const [cat, orders, visits, status, may] = await Promise.all([api("catalog"), api("orders").catch(() => []), api("visits", { days: 365 }, "GET").catch(() => ({})), fetch("/api/admin?a=status").then((r) => r.json()), api("may-list").catch(() => [])]);
+  S.may = may;
   S.cat = cat; S.saved = JSON.stringify(cat); S.orders = orders; S.ordersAt = Date.now(); S.visits = visits; S.status = status;
   shell(); route();
 }
@@ -123,13 +126,13 @@ setInterval(async () => {
 }, 40000);
 
 /* ---------- Estructura ---------- */
-const NAV = [["inicio", "Inicio", "home"], ["pedidos", "Pedidos", "orders"], ["productos", "Productos", "box"], ["clientes", "Clientes", "users"], ["descuentos", "Descuentos", "tag"],
+const NAV = [["inicio", "Inicio", "home"], ["pedidos", "Pedidos", "orders"], ["productos", "Productos", "box"], ["clientes", "Clientes", "users"], ["mayoristas", "Mayoristas", "brief"], ["descuentos", "Descuentos", "tag"],
   [null, "Canal de venta"], ["tienda", "Tienda online", "store"], ["colecciones", "Colecciones y rituales", "layers"], [null, ""], ["ajustes", "Configuración", "cog"]];
 function shell() {
   $("#root").innerHTML = `<div class="app">
     <aside class="side">
       <a class="brand" href="#/inicio"><img src="/assets/img/nutrell-logo-light.png" alt="Nutrell"><span>Admin</span></a>
-      ${NAV.map(([k, t, i]) => k ? `<a class="nav-i" href="#/${k}" data-nav="${k}">${ic(i)}${t}${k === "pedidos" ? '<span class="count" data-new-count hidden></span>' : ""}</a>` : t ? `<div class="nav-g">${t}</div>` : "").join("")}
+      ${NAV.map(([k, t, i]) => k ? `<a class="nav-i" href="#/${k}" data-nav="${k}">${ic(i)}${t}${k === "pedidos" ? '<span class="count" data-new-count hidden></span>' : k === "mayoristas" ? '<span class="count" data-may-count hidden></span>' : ""}</a>` : t ? `<div class="nav-g">${t}</div>` : "").join("")}
       <div class="foot">
         <a class="nav-i" href="/" target="_blank" rel="noopener">${ic("ext")}Ver tienda</a>
         <button class="nav-i" data-logout>${ic("out")}Cerrar sesión</button>
@@ -166,7 +169,8 @@ function shell() {
   updateNewCount();
 }
 function closeSide() { $(".side")?.classList.remove("open"); $(".scrim")?.classList.remove("show"); }
-function updateNewCount() { const n = S.orders.filter((o) => o.estado === "nuevo").length; $$("[data-new-count], [data-bcount]").forEach((el) => { el.hidden = !n; el.textContent = n; }); }
+function updateMayCount() { const n = (S.may || []).filter((m) => m.estado === "pendiente").length; $$("[data-may-count]").forEach((el) => { el.hidden = !n; el.textContent = n; }); }
+function updateNewCount() { updateMayCount(); const n = S.orders.filter((o) => o.estado === "nuevo").length; $$("[data-new-count], [data-bcount]").forEach((el) => { el.hidden = !n; el.textContent = n; }); }
 
 function markDirty() {
   S.dirty = JSON.stringify(S.cat) !== S.saved;
@@ -233,7 +237,7 @@ function route() {
   const banner = !S.status.db ? `<div class="banner bad">${ic("warn")}<div>${dbSteps()}<div style="margin-top:12px"><button class="btn btn-dark btn-sm" data-check-db>Verificar conexión</button></div></div></div>`
     : S.status.defaultPassword ? `<div class="banner">${ic("lock")}<div><b>Estás usando la clave inicial 123456.</b> Cualquiera que la adivine puede entrar a tu panel. <a href="#/ajustes" style="text-decoration:underline">Cámbiala ahora en Configuración → Seguridad</a>.</div></div>` : "";
   if (["inicio", "pedidos", "clientes"].includes(sec) && S.status.db && Date.now() - (S.ordersAt || 0) > 4000) { S.ordersAt = Date.now(); reloadOrders().then(() => { updateNewCount(); if ((location.hash.split("/")[1] || "inicio") === sec) { const y = scrollY; route(); scrollTo(0, y); } }); }
-  const views = { inicio: vDashboard, pedidos: id ? () => vOrder(id) : vOrders, productos: id ? () => vProduct(id) : vProducts, clientes: vCustomers, descuentos: vDiscounts, tienda: vContent, colecciones: vCollections, ajustes: vSettings };
+  const views = { inicio: vDashboard, pedidos: id ? () => vOrder(id) : vOrders, productos: id ? () => vProduct(id) : vProducts, clientes: vCustomers, mayoristas: id === "config" ? vMayConfig : id ? () => vMay(id) : vMayList, descuentos: vDiscounts, tienda: vContent, colecciones: vCollections, ajustes: vSettings };
   v.innerHTML = banner + (views[sec] || vDashboard)();
   window.scrollTo(0, 0);
   after.forEach((f) => f(v)); after = [];
@@ -422,7 +426,7 @@ function niceStep(v) { const p = Math.pow(10, Math.floor(Math.log10(v || 1))); c
 function ordersTable(list, compact = false) {
   if (!list.length) return emptyS("orders", S.status.db ? "Aún no hay pedidos. Cuando un cliente compre, aparecerá aquí." : "Conecta la base de datos para recibir pedidos aquí.");
   return `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Pedido</th><th>Fecha</th><th>Cliente</th>${compact ? "" : "<th>Ciudad</th><th>Pago</th>"}<th>Estado</th><th class="r">Total</th></tr></thead><tbody>
-    ${list.map((o) => `<tr data-href="#/pedidos/${o.id}"><td class="num">#${o.numero}</td><td class="muted">${fDate(o.fecha, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</td><td><b>${esc(o.cliente.nombre)}</b><br><small class="muted">${esc(o.cliente.telefono)}</small></td>${compact ? "" : `<td>${esc(o.cliente.ciudad)}</td><td>${badge(o.pago, PAGOS)}</td>`}<td>${badge(o.estado)}</td><td class="r num">${cop(o.total)}</td></tr>`).join("")}
+    ${list.map((o) => `<tr data-href="#/pedidos/${o.id}"><td class="num">#${o.numero}</td><td class="muted">${fDate(o.fecha, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</td><td><b>${esc(o.cliente.nombre)}</b>${o.canal === "mayorista" ? ' <span class="badge b-may">Mayorista</span>' : ""}<br><small class="muted">${esc(o.cliente.telefono)}</small></td>${compact ? "" : `<td>${esc(o.cliente.ciudad)}</td><td>${badge(o.pago, PAGOS)}</td>`}<td>${badge(o.estado)}</td><td class="r num">${cop(o.total)}</td></tr>`).join("")}
   </tbody></table></div>`;
 }
 document.addEventListener("click", (e) => { const tr = e.target.closest("tr[data-href]"); if (tr) location.hash = tr.dataset.href; });
@@ -431,7 +435,7 @@ function vOrders() {
   const saved = sessionStorage.getItem("nt-tab"); if (saved) { S.tab = saved; sessionStorage.removeItem("nt-tab"); }
   const q = S.q.toLowerCase();
   const digits = q.replace(/\D/g, "");
-  const filtered = S.orders.filter((o) => (S.tab === "todos" || o.estado === S.tab) && (!q || `#${o.numero} ${o.cliente.nombre} ${o.cliente.ciudad} ${o.cliente.email}`.toLowerCase().includes(q) || (digits.length > 3 && o.cliente.telefono.replace(/\D/g, "").includes(digits))));
+  const filtered = S.orders.filter((o) => (S.tab === "todos" || (S.tab === "mayoristas" ? o.canal === "mayorista" : o.estado === S.tab)) && (!q || `#${o.numero} ${o.cliente.nombre} ${o.cliente.ciudad} ${o.cliente.email}`.toLowerCase().includes(q) || (digits.length > 3 && o.cliente.telefono.replace(/\D/g, "").includes(digits))));
   later((v) => {
     $$("[data-tab]", v).forEach((b) => b.onclick = () => { S.tab = b.dataset.tab; route(); });
     const inp = $("[data-oq]", v); inp.value = S.q; inp.oninput = () => { S.q = inp.value; clearTimeout(inp._t); inp._t = setTimeout(() => { const pos = inp.selectionStart; route(); const n = $("[data-oq]"); n.focus(); n.setSelectionRange(pos, pos); }, 250); };
@@ -441,7 +445,7 @@ function vOrders() {
   return `<div class="ph"><div><h1>Pedidos</h1><div class="sub">${S.orders.length} pedidos en total</div></div>
     <div class="actions"><button class="btn btn-line" data-refresh>Actualizar</button><button class="btn btn-line" data-export>${ic("dl")}Exportar</button></div></div>
   <div class="card">
-    <div class="tabs">${[["todos", "Todos"], ...ESTADOS].map(([k, l]) => `<button data-tab="${k}" class="${S.tab === k ? "on" : ""}">${l}<span>${k === "todos" ? S.orders.length : S.orders.filter((o) => o.estado === k).length}</span></button>`).join("")}</div>
+    <div class="tabs">${[["todos", "Todos"], ["mayoristas", "Mayoristas"], ...ESTADOS].map(([k, l]) => `<button data-tab="${k}" class="${S.tab === k ? "on" : ""}">${l}<span>${k === "todos" ? S.orders.length : k === "mayoristas" ? S.orders.filter((o) => o.canal === "mayorista").length : S.orders.filter((o) => o.estado === k).length}</span></button>`).join("")}</div>
     <div class="toolbar"><div class="search">${ic("search")}<input data-oq placeholder="Buscar por número, cliente, celular o ciudad"></div></div>
     ${ordersTable(filtered)}
   </div>`;
@@ -618,6 +622,7 @@ function vProduct(slug) {
       </div>
       <div class="card"><h2>Precio</h2>
         <div class="row2">${money("Precio de venta", "precio")}${money("Precio antes (tachado)", "antes", "Déjalo en 0 si no hay descuento")}</div>
+        ${money("Precio base mayorista (opcional)", "precioMayorista", "Si lo dejas en 0, el descuento del nivel de cada mayorista se aplica sobre el precio de venta.")}
         <h3 style="margin-top:6px">Packs y descuentos por volumen</h3>
         ${repeater("packs", p.packs, (i) => `<div class="row3">${fld("Unidades", `packs.${i}.unidades`, { type: "number", t: "num", attrs: 'min="1"' })}${fld("Descuento %", `packs.${i}.descuento`, { type: "number", t: "num", attrs: 'min="0" max="90"' })}${fld("Texto", `packs.${i}.texto`)}</div>`, { title: (i, it) => `Pack ${i + 1}${it.unidades ? ` · ${it.unidades} und.` : ""}`, addLabel: "Agregar pack", blank: { unidades: 6, descuento: 10, texto: "" } })}
       </div>
@@ -880,4 +885,109 @@ function initSearch() {
   inp.addEventListener("focus", run);
   document.addEventListener("click", (e) => { if (!e.target.closest(".search")) box.classList.add("hidden"); if (e.target.closest(".search-res a")) { box.classList.add("hidden"); inp.value = ""; } });
   document.addEventListener("keydown", (e) => { if (e.key === "/" && !e.target.closest("input,textarea,select")) { e.preventDefault(); inp.focus(); } });
+}
+
+
+/* ---------- MAYORISTAS ---------- */
+const MAY_EST = [["pendiente", "Pendiente"], ["aprobado", "Aprobado"], ["rechazado", "Rechazado"], ["inactivo", "Inactivo"]];
+const mayBadge = (k) => `<span class="badge b-m-${esc(k)}">${esc(lbl(MAY_EST, k))}</span>`;
+const mayOrders = (id) => S.orders.filter((o) => o.mayorista?.id === id);
+const mayTotal = (id) => mayOrders(id).filter(valid).reduce((s, o) => s + o.total, 0);
+const nivelName = (id) => (S.cat.mayoristas.niveles.find((n) => n.id === id) || {}).nombre || "—";
+async function reloadMay() { S.may = await api("may-list").catch(() => S.may || []); updateMayCount(); }
+
+function vMayList() {
+  S.mtab ??= (S.may || []).some((m) => m.estado === "pendiente") ? "pendiente" : "aprobado";
+  const q = (S.mq || "").toLowerCase();
+  const list = (S.may || []).filter((m) => (S.mtab === "todos" || m.estado === S.mtab) && (!q || `${m.empresa} ${m.contacto} ${m.ciudad} ${m.email} ${m.nit} ${m.tipo}`.toLowerCase().includes(q)));
+  const ventas30 = S.orders.filter((o) => o.canal === "mayorista" && valid(o) && inRange(o, 30)).reduce((s, o) => s + o.total, 0);
+  const activos = (S.may || []).filter((m) => m.estado === "aprobado").length;
+  const pend = (S.may || []).filter((m) => m.estado === "pendiente").length;
+  later((v) => {
+    $$("[data-mtab]", v).forEach((b) => b.onclick = () => { S.mtab = b.dataset.mtab; route(); });
+    const inp = $("[data-mq]", v); inp.value = S.mq || ""; inp.oninput = () => { S.mq = inp.value; clearTimeout(inp._t); inp._t = setTimeout(() => { const p = inp.selectionStart; route(); const n = $("[data-mq]"); n.focus(); n.setSelectionRange(p, p); }, 250); };
+    $("[data-mexp]", v).onclick = () => download(`mayoristas-nutrell-${dayKey(Date.now())}.csv`, [["Empresa", "NIT", "Tipo", "Contacto", "Cargo", "Celular", "Correo", "Ciudad", "Departamento", "Dirección", "Canales", "Volumen", "Estado", "Nivel", "Descuento", "Pedidos", "Total comprado", "Solicitud"],
+      ...list.map((m) => [m.empresa, m.nit, m.tipo, m.contacto, m.cargo, m.telefono, m.email, m.ciudad, m.departamento, m.direccion, (m.canales || []).join(" | "), m.volumen, lbl(MAY_EST, m.estado), nivelName(m.nivel), m.descuento ?? "", mayOrders(m.id).length, mayTotal(m.id), fDate(m.fecha)])]);
+    $("[data-mref]", v).onclick = async () => { await reloadMay(); await reloadOrders(); route(); toast("Mayoristas actualizados"); };
+  });
+  return `<div class="ph"><div><h1>Mayoristas</h1><div class="sub">Solicitudes, clientes mayoristas y sus condiciones comerciales</div></div>
+    <div class="actions"><a class="btn btn-line" href="/mayoristas" target="_blank" rel="noopener">${ic("ext")}Ver página</a><button class="btn btn-line" data-mref>Actualizar</button><button class="btn btn-line" data-mexp>${ic("dl")}Exportar</button><a class="btn btn-dark" href="#/mayoristas/config">${ic("cog")}Configurar programa</a></div></div>
+  <div class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+    <div class="kpi hero"><div class="l">Ventas mayoristas · 30 días</div><div class="v">${cop(ventas30)}</div></div>
+    <div class="kpi"><div class="l">Mayoristas activos</div><div class="v">${activos}</div></div>
+    <div class="kpi"><div class="l">Solicitudes por revisar</div><div class="v">${pend}</div></div>
+  </div>
+  <div class="card">
+    <div class="tabs">${[["pendiente", "Solicitudes"], ["aprobado", "Activos"], ["inactivo", "Inactivos"], ["rechazado", "Rechazados"], ["todos", "Todos"]].map(([k, l]) => `<button data-mtab="${k}" class="${S.mtab === k ? "on" : ""}">${l}<span>${k === "todos" ? (S.may || []).length : (S.may || []).filter((m) => m.estado === k).length}</span></button>`).join("")}</div>
+    <div class="toolbar"><div class="search">${ic("search")}<input data-mq placeholder="Buscar por negocio, contacto, ciudad o NIT"></div></div>
+    ${list.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Negocio</th><th>Tipo</th><th>Ciudad</th><th>Nivel</th><th>Estado</th><th>Pedidos</th><th class="r">Total comprado</th></tr></thead><tbody>
+      ${list.map((m) => `<tr data-href="#/mayoristas/${m.id}"><td><div class="pn"><span class="avatar" style="width:38px;height:38px">${esc(m.empresa.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase())}</span><div>${esc(m.empresa)}<small>${esc(m.contacto)} · ${esc(m.telefono)}</small></div></div></td><td>${esc(m.tipo)}</td><td>${esc(m.ciudad)}</td><td>${m.estado === "aprobado" ? `${esc(nivelName(m.nivel))}<br><small class="muted">${m.descuento ?? (S.cat.mayoristas.niveles.find((n) => n.id === m.nivel) || {}).descuento ?? 0}% desc.</small>` : '<span class="muted">—</span>'}</td><td>${mayBadge(m.estado)}<br><small class="muted">${fDate(m.fecha, { day: "numeric", month: "short" })}</small></td><td>${mayOrders(m.id).length}</td><td class="r num">${cop(mayTotal(m.id))}</td></tr>`).join("")}
+    </tbody></table></div>` : emptyS("brief", S.mtab === "pendiente" ? "No hay solicitudes nuevas. Comparte tu página /mayoristas con tus prospectos." : "No hay mayoristas en esta lista.")}
+  </div>`;
+}
+
+function vMay(id) {
+  const m = (S.may || []).find((x) => x.id === id);
+  if (!m) return `<div class="ph"><a class="back" href="#/mayoristas">${ic("back")}</a><h1>Mayorista no encontrado</h1></div>`;
+  const cfg = S.cat.mayoristas, niv = cfg.niveles.find((n) => n.id === m.nivel) || cfg.niveles[0];
+  const os = mayOrders(m.id);
+  const msgOk = `Hola ${m.contacto.split(" ")[0]}, ¡bienvenido a la red de mayoristas Nutrell! Tu cuenta de ${m.empresa} fue aprobada en el nivel ${niv.nombre} (${m.descuento ?? niv.descuento}% de descuento). Ingresa al portal con tu correo ${m.email}: ${location.origin}/mayoristas/portal`;
+  later((v) => {
+    const patch = async (data, ok) => { try { const n = await api("may-update", { id: m.id, ...data }); Object.assign(m, n); updateMayCount(); route(); toast(ok); } catch (e) { toast(e.message, true); } };
+    $("[data-approve]", v)?.addEventListener("click", () => patch({ estado: "aprobado", nivel: $("[data-nivel]", v).value }, "Mayorista aprobado. Avísale por WhatsApp."));
+    $("[data-reject]", v)?.addEventListener("click", async () => { if (await confirmBox("¿Rechazar la solicitud?", `${m.empresa} no podrá ingresar al portal.`, "Rechazar", true)) patch({ estado: "rechazado" }, "Solicitud rechazada"); });
+    $("[data-state]", v)?.addEventListener("change", (e) => patch({ estado: e.target.value }, "Estado actualizado"));
+    $("[data-cond]", v).onsubmit = (e) => { e.preventDefault(); const f = e.target; patch({ nivel: f.nivel.value, descuento: f.descuento.value, minimo: f.minimo.value, credito: { activo: f.credito.checked, dias: f.dias.value, cupo: f.cupo.value } }, "Condiciones guardadas"); };
+    $("[data-notes]", v).onsubmit = (e) => { e.preventDefault(); patch({ notas: e.target.notas.value }, "Notas guardadas"); };
+    $("[data-pass]", v).onsubmit = (e) => { e.preventDefault(); const p = e.target.password.value; if (p.length < 8) return toast("Mínimo 8 caracteres", true); patch({ password: p }, "Contraseña restablecida. Envíala al mayorista."); };
+    $("[data-mdel]", v).onclick = async () => { if (!(await confirmBox(`¿Eliminar a ${m.empresa}?`, "Se borra su cuenta y su acceso. Sus pedidos se conservan.", "Eliminar", true))) return; try { await api("may-delete", { id: m.id }); S.may = S.may.filter((x) => x !== m); updateMayCount(); location.hash = "#/mayoristas"; toast("Mayorista eliminado"); } catch (e) { toast(e.message, true); } };
+  });
+  const nivOpts = cfg.niveles.map((n) => `<option value="${esc(n.id)}"${n.id === m.nivel ? " selected" : ""}>${esc(n.nombre)} · ${n.descuento}% · mín. ${cop(n.minimo)}</option>`).join("");
+  return `<div class="ph"><a class="back" href="#/mayoristas" aria-label="Volver">${ic("back")}</a>
+    <div><h1>${esc(m.empresa)} ${mayBadge(m.estado)}</h1><div class="sub">${esc(m.tipo)} · ${esc(m.ciudad)} · solicitud del ${fDate(m.fecha, { day: "numeric", month: "long", year: "numeric" })}</div></div>
+    <div class="actions"><a class="btn btn-line" target="_blank" rel="noopener" href="https://wa.me/${waNum(m.telefono)}?text=${encodeURIComponent(m.estado === "aprobado" ? msgOk : `Hola ${m.contacto.split(" ")[0]}, te escribimos de Nutrell sobre tu solicitud de mayorista para ${m.empresa}.`)}">${ic("wa")}${m.estado === "aprobado" ? "Enviar bienvenida" : "Escribir por WhatsApp"}</a></div></div>
+  ${m.estado === "pendiente" ? `<div class="card" style="border-color:rgba(201,162,75,.5);background:#fffcf4"><h2>${ic("brief")}Revisar solicitud</h2><p class="hint">Asigna un nivel y aprueba para que pueda ingresar al portal con su correo y contraseña.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center"><select class="inp" data-nivel style="max-width:340px">${nivOpts}</select><button class="btn btn-gold" data-approve>${ic("check")}Aprobar mayorista</button><button class="btn btn-danger" data-reject>Rechazar</button></div></div>` : ""}
+  <div class="grid2"><div>
+    <div class="card"><h2>Datos del negocio</h2><div class="kvg">
+      <div><small>Empresa</small><b>${esc(m.empresa)}</b></div><div><small>NIT / cédula</small><b>${esc(m.nit || "—")}</b></div>
+      <div><small>Tipo de negocio</small><b>${esc(m.tipo)}</b></div><div><small>Compra mensual estimada</small><b>${esc(m.volumen || "—")}</b></div>
+      <div><small>Canales de venta</small><b>${esc((m.canales || []).join(", ") || "—")}</b></div><div><small>Instagram / web</small><b>${esc(m.sitio || "—")}</b></div>
+      <div><small>Dirección</small><b>${esc(m.direccion || "—")}</b></div><div><small>Ciudad</small><b>${esc(m.ciudad)}${m.departamento ? ", " + esc(m.departamento) : ""}</b></div>
+    </div>${m.mensaje ? `<p class="muted" style="margin:14px 0 0;border-top:1px solid var(--line);padding-top:12px">“${esc(m.mensaje)}”</p>` : ""}</div>
+    <div class="card"><h2>Pedidos <small>${os.length} pedidos · ${cop(mayTotal(m.id))}</small></h2>${ordersTable(os, true)}</div>
+    <div class="card"><h2>Historial</h2><div class="tl">${[...(m.historial || [])].reverse().map((h) => `<div><div>${esc(h.texto)}<small>${fDate(h.fecha)}</small></div></div>`).join("")}</div></div>
+  </div><div>
+    <div class="card"><h2>Contacto</h2><div class="kv"><b>${esc(m.contacto)}</b>${m.cargo ? `<span class="muted">${esc(m.cargo)}</span>` : ""}<a href="https://wa.me/${waNum(m.telefono)}" target="_blank" rel="noopener">${esc(m.telefono)}</a><a href="mailto:${esc(m.email)}">${esc(m.email)}</a>${m.ultimoAcceso ? `<span class="muted">Último ingreso: ${fDate(m.ultimoAcceso)}</span>` : ""}</div></div>
+    <form class="card" data-cond><h2>Condiciones comerciales</h2>
+      <label class="f"><span>Nivel</span><select name="nivel">${nivOpts}</select></label>
+      <div class="row2"><label class="f"><span>Descuento personalizado %</span><input name="descuento" type="number" min="0" max="90" value="${m.descuento ?? ""}" placeholder="Según nivel"></label>
+      <label class="f"><span>Pedido mínimo personalizado</span><div class="pre"><b>$</b><input name="minimo" type="number" min="0" step="1000" value="${m.minimo ?? ""}" placeholder="Según nivel"></div></label></div>
+      <label class="sw" style="margin-bottom:12px"><input type="checkbox" name="credito"${m.credito?.activo ? " checked" : ""}><i></i>Habilitar crédito</label>
+      <div class="row2"><label class="f"><span>Días de crédito</span><input name="dias" type="number" min="0" value="${m.credito?.dias ?? 30}"></label><label class="f"><span>Cupo de crédito</span><div class="pre"><b>$</b><input name="cupo" type="number" min="0" step="10000" value="${m.credito?.cupo || ""}" placeholder="Sin tope"></div></label></div>
+      <button class="btn btn-dark btn-sm">Guardar condiciones</button></form>
+    ${m.estado !== "pendiente" ? `<div class="card"><h2>Estado de la cuenta</h2><select class="inp" data-state>${MAY_EST.map(([k, l]) => `<option value="${k}"${m.estado === k ? " selected" : ""}>${l}</option>`).join("")}</select><p class="hint" style="margin:10px 0 0">Solo los mayoristas <b>aprobados</b> pueden ingresar al portal.</p></div>` : ""}
+    <form class="card" data-notes><h2>Notas internas</h2><label class="f"><textarea name="notas" rows="3" placeholder="Zona, asesor asignado, acuerdos…">${esc(m.notas || "")}</textarea></label><button class="btn btn-line btn-sm">Guardar notas</button></form>
+    <form class="card" data-pass><h2>${ic("lock")}Restablecer contraseña</h2><label class="f"><input name="password" type="text" minlength="8" placeholder="Nueva contraseña (mín. 8)" autocomplete="off"></label><button class="btn btn-line btn-sm">Restablecer</button></form>
+    <div class="card"><button class="btn btn-danger btn-sm" data-mdel>${ic("trash")}Eliminar mayorista</button></div>
+  </div></div>`;
+}
+
+function vMayConfig() {
+  const cfg = S.cat.mayoristas;
+  later((v) => { bindInputs(v, () => S.cat); wireRepeaters(v, (k) => getPath(S.cat, k), () => { const y = scrollY; route(); scrollTo(0, y); }); chipsInput($("[data-chips=tipos]", v), cfg, "tiposNegocio"); });
+  return `<div class="ph"><a class="back" href="#/mayoristas" aria-label="Volver">${ic("back")}</a><div><h1>Programa de mayoristas</h1><div class="sub">Niveles, precios, pedido mínimo y métodos de pago del portal</div></div><div class="actions"><a class="btn btn-line" href="/mayoristas" target="_blank" rel="noopener">${ic("ext")}Ver página</a></div></div>
+  <div class="grid2"><div>
+    <div class="card"><h2>Niveles y descuentos</h2><p class="hint">El descuento se aplica sobre el precio de venta (o sobre el precio base mayorista si lo definiste en el producto).</p>
+      ${repeater("mayoristas.niveles", cfg.niveles, (i) => `<div class="row3">${fld("Nombre", `mayoristas.niveles.${i}.nombre`)}${fld("Descuento %", `mayoristas.niveles.${i}.descuento`, { type: "number", t: "num", attrs: 'min="0" max="90"' })}${money("Pedido mínimo", `mayoristas.niveles.${i}.minimo`)}</div>${fld("Descripción", `mayoristas.niveles.${i}.descripcion`)}${fld("Código interno", `mayoristas.niveles.${i}.id`, { help: "Sin espacios. No lo cambies si ya hay mayoristas en este nivel." })}`,
+        { title: (i, n) => n.nombre || "Nivel", addLabel: "Agregar nivel", blank: { id: "nivel" + (cfg.niveles.length + 1), nombre: "Nuevo nivel", descuento: 20, minimo: 500000, descripcion: "" } })}
+      <div style="margin-top:14px">${fld("Nivel asignado al aprobar", "mayoristas.nivelInicial", { opts: cfg.niveles.map((n) => [n.id, n.nombre]) })}</div>
+    </div>
+    <div class="card"><h2>Página pública /mayoristas</h2>${fld("Título", "mayoristas.titulo")}${fld("Texto", "mayoristas.texto", { rows: 3 })}
+      <label class="f"><span>Tipos de negocio del formulario</span><div class="chips-in" data-chips="tipos"></div></label></div>
+  </div><div>
+    <div class="card"><h2>Estado</h2>${sw("Programa de mayoristas activo", "mayoristas.activo")}</div>
+    <div class="card"><h2>Métodos de pago del portal</h2><div style="display:grid;gap:12px">${sw("Pago en línea (Wompi)", "mayoristas.metodos.online")}${sw("Transferencia bancaria", "mayoristas.metodos.transferencia")}${sw("Crédito (solo a quien se lo habilites)", "mayoristas.metodos.credito")}</div>
+      <div style="margin-top:14px">${fld("Instrucciones de transferencia", "mayoristas.datosTransferencia", { rows: 3, help: "Se muestran al mayorista cuando elige transferencia. Ej.: Bancolombia ahorros 000-000000-00 a nombre de…" })}</div></div>
+  </div></div>`;
 }

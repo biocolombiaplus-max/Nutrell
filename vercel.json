@@ -11,6 +11,8 @@
     { "source": "/robots.txt", "destination": "/api/page?r=robots" },
     { "source": "/img/:id", "destination": "/api/store?a=img&id=:id" },
     { "source": "/pedido", "destination": "/api/page?r=pedido" },
+    { "source": "/mayoristas", "destination": "/api/page?r=mayoristas" },
+    { "source": "/mayoristas/portal", "destination": "/api/page?r=portal" },
     { "source": "/webhooks/wompi", "destination": "/api/store?a=wompi" },
     { "source": "/admin", "destination": "/admin/index.html" },
     { "source": "/:slug([a-z0-9-]+)", "destination": "/api/page?r=product&slug=:slug" }
