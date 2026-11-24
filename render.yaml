@@ -1,0 +1,23 @@
+# Respaldo de la tienda Nutrell en Render (se usa cuando Vercel está pausado).
+# Render → New → Blueprint → elige este repositorio. Las claves se piden al crear el servicio.
+services:
+  - type: web
+    name: nutrell-respaldo
+    runtime: node
+    plan: free
+    region: virginia
+    branch: claude/fervent-dijkstra-ntjp58
+    buildCommand: "echo 'Sin dependencias que instalar'"
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: REDIS_URL
+        sync: false
+      - key: WOMPI_PUBLIC_KEY
+        sync: false
+      - key: WOMPI_INTEGRITY_SECRET
+        sync: false
+      - key: WOMPI_EVENTS_SECRET
+        sync: false
