@@ -1423,3 +1423,36 @@ body:has(.pt-bar.show) .wa-float { bottom: 100px; }
 .hm-ctas { display: flex; flex-wrap: wrap; gap: 12px; }
 @media (max-width: 980px) { .hm-frame { transform: none; } .hm-float { right: 8px; bottom: -26px; } .hm-badge { left: 6px; top: -22px; } }
 @media (max-width: 600px) { .hm-badge { width: 82px; height: 82px; } .hm-badge b { font-size: 1.2rem; } .hm-float { position: relative; right: auto; bottom: auto; margin: -34px 14px 0; } .hm-frame { border-radius: 22px; } .hm-ctas .btn { flex: 1 1 100%; } }
+
+/* =========================================================
+   v10 · AJUSTE TOTAL A CELULAR (sin desplazamiento lateral)
+   ========================================================= */
+.faq-grid > *, .cta-final > *, .maq-teaser > *, .maq-band > *, .maq-form-wrap > *, .ws-apply > *, .hero-grid > *, .featured-grid > *, .spot > *, .pdp > *, .bf-inner > *, .hm-grid > *, .maq-head > *, .contact-band > *, .footer-grid > * { min-width: 0; }
+h1, h2, h3, p, summary, .answer, .lead { overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .btn { white-space: normal; text-align: center; height: auto; min-height: 52px; padding: 12px 20px; line-height: 1.25; }
+  .faq-grid .btn, .cta-final .btn, .maq-teaser .btn, .maq-form-wrap .btn, .ws-apply .btn { width: 100%; }
+  .faq summary { font-size: 1rem; padding: 20px 0; }
+  .cta-final { padding: 26px 20px; border-radius: 26px; }
+  .code-box { padding: 20px; } .code-box b { font-size: 2.4rem; }
+  .newsletter .btn { width: 100%; }
+  .maq-band { padding: 20px 16px; }
+  .maq-steps { gap: 2px; }
+  .maq-steps b { width: 34px; height: 34px; font-size: .85rem; }
+  .maq-steps span { font-size: .66rem; }
+  .maq-steps i { min-width: 4px; margin-bottom: 20px; }
+  .maq-formats span { font-size: .78rem; padding: 7px 11px; }
+  .maq-teaser { padding: 18px; }
+  .ws-form { padding: 20px 16px; }
+  .fld-row { grid-template-columns: 1fr; gap: 0; }
+}
+/* Davivienda */
+.pl-dv { background: #ed1c27; color: #fff; border-color: #ed1c27; gap: 5px; }
+.pl-dv u { width: 12px; height: 11px; background: #fff; clip-path: polygon(50% 0, 100% 45%, 100% 100%, 0 100%, 0 45%); display: inline-block; }
+.footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 900px) { .footer-grid { grid-template-columns: 1.6fr repeat(3, minmax(0, 1fr)); } }
+.footer li, .footer a { overflow-wrap: anywhere; }
+@media (max-width: 380px) { .footer-grid { grid-template-columns: minmax(0, 1fr); } }
+html, body { overflow-x: clip; }
+body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
+a, button { touch-action: manipulation; }
